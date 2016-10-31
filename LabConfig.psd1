@@ -15,20 +15,20 @@
             Lability_SwitchName         = 'Labnet'
             Lability_ProcessorCount     = 1
             Lability_StartupMemory      = 2GB
-            Lability_Media              = '2012R2_x64_Standard_EN_V5_Eval'
+            Lability_Media              = '2016_x64_Standard_Core_EN_Eval'           
+            #Lability_Media              = '2012R2_x64_Standard_EN_V5_Eval'
         }
         @{
             NodeName                = 'DC1'
             IPAddress               = '10.0.0.1'
             DnsServerAddress        = '127.0.0.1'
             Role                    = 'DC'
-            Lability_ProcessorCount = 1
         }        
         @{
-            NodeName                = 'JAHIA01'
+            NodeName                = 'JAHIA01' 
             IPAddress               = '10.0.0.31'
-            Role                    = 'DC'
-            Lability_ProcessorCount = 1
+            Role                    = @('JOINED', 'JAHIA')
+            Lability_Resource       = @('jdk-8u112-windows-x64.exe')
         }
     );
     NonNodeData = @{
@@ -56,9 +56,19 @@
                 @{ Name = 'xActiveDirectory'; MinimumVersion = '2.9.0.0'; }
                 @{ Name = 'xDnsServer'; MinimumVersion = '1.5.0.0'; }
                 @{ Name = 'xDhcpServer'; MinimumVersion = '1.3.0.0'; }
+                @{ Name = 'xPSDesiredStateConfiguration'; MinimumVersion = '4.0.0.0'; }
                 ## The 'GitHub# provider can download modules directly from a GitHub repository, for example:
                 ## @{ Name = 'Lability'; Provider = 'GitHub'; Owner = 'VirtualEngine'; Repository = 'Lability'; Branch = 'dev'; }
             );
+            Resource = @(
+                @{
+                    Id = 'jdk-8u112-windows-x64.exe'
+                    Filename = 'jdk-8u112-windows-x64.exe'
+                    Uri = 'http://oracle_would_not_work_see_README'
+                    Checksum = '1C765B83260C3E691A7B716E21B290C7'
+                    DestinationPath = '\Downloads'
+                }
+            );             
         };
     };
 };

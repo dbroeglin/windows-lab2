@@ -9,13 +9,18 @@ Configuration LabConfig {
         xDnsServer (v1.5.0 or later):                   https://github.com/PowerShell/xDnsServer
         xPSDesiredStateConfiguration (v4.0.0.0 or later https://github.com/PowerShell/xPSDesiredStateConfiguration 
 
- @("xComputerManagement", "xNetworking", "xActiveDirectory", "xSmbShare", 
-   "xPSDesiredStateConfiguration", "xDHCPServer", "xDnsServer", "xPSDesiredStateConfiguration" ) | 
+    @("xComputerManagement", "xNetworking", "xActiveDirectory", "xSmbShare", 
+      "xPSDesiredStateConfiguration", "xDHCPServer", "xDnsServer", 
+      "xPSDesiredStateConfiguration" ) | 
    % { Find-Module $_; Install-Module $_ }
         
 #>
     param (
-        [Parameter()] [ValidateNotNull()] [PSCredential] $Credential = (Get-Credential -Credential 'Administrator')
+        [Parameter()] 
+        [PSCredential] 
+        [System.Management.Automation.Credential()]
+        $Credential = (Get-Credential -Credential 'Administrator'),
+        [Parameter()] [String] $DownloadDir = "C:\Downloads"
     )
     Import-DscResource -Module xComputerManagement, xNetworking, xActiveDirectory
     Import-DscResource -Module xSmbShare, PSDesiredStateConfiguration
@@ -83,7 +88,7 @@ Configuration LabConfig {
         }
     } #end nodes ALL
 
-node $AllNodes.Where({$_.Role -in 'DC'}).NodeName {
+node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
         ## Flip credential into username@domain.com
         $domainCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ("$($Credential.UserName)@$($node.DomainName)", $Credential.Password);
 
@@ -162,16 +167,34 @@ node $AllNodes.Where({$_.Role -in 'DC'}).NodeName {
 
     } #end nodes DC
 
-    node $AllNodes.Where({$_.Role -in 'JAHIA'}).NodeName {
-        $JavaPackagePath = ""
+    node $AllNodes.Where({$_.Role -contains 'JAHIA'}).NodeName {
+        $JavaPackagePath = Join-Path $DownloadDir "jdk-8u112-windows-x64.exe"
 
-        xRemoteFile DownloadJava
+        xRemoteFile "jdk-8u112-windows-x64.exe"
         {
             DestinationPath = $JavaPackagePath 
-            Uri = $uri
-            UserAgent = $userAgent
-            Headers = $headers
-        }        
+            MatchSource = $False
+            Uri = "http://download.oracle.com/otn-pub/java/jdk/8u112-b15/jdk-8u112/jdk-8u112-windows-x64.exe"
+            Headers = @{
+                "Cookie" = "oraclelicense=accept-securebackup-cookie"
+            }
+        }
+
+        xPackage "jdk-8u112-windows-x64.exe"
+        {
+            Ensure = 'Present'
+            Name = 'Java SE Development Kit 8 Update 112 (64-bit)'
+            Path = $JavaPackagePath
+            Arguments = '/q'
+            ProductId = ''
+            DependsOn = @("[xRemoteFile]jdk-8u112-windows-x64.exe")
+        }
+
+        xEnvironment "JAVA_HOME" {
+            Name = "JAVA_HOME"
+            Ensure = "Present"
+            Value = "C:\Program Files\Java\jdk1.8.0_112"
+        }     
     } #end nodes JAHIA
 
     node $AllNodes.Where({$_.Role -contains 'JOINED'}).NodeName {
