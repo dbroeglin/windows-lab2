@@ -1,14 +1,13 @@
 Configuration LabConfig {
 <#
     Requires the following custom DSC resources:
-        xComputerManagement (v1.4.0.0 or later):        https://github.com/PowerShell/xComputerManagement
-        xNetworking/dev (v2.7.0.0 or later):            https://github.com/PowerShell/xNetworking
-        xActiveDirectory (v2.9.0.0 or later):           https://github.com/PowerShell/xActiveDirectory
-        xSmbShare (v1.1.0.0 or later):                  https://github.com/PowerShell/xSmbShare
-        xDhcpServer (v1.3.0 or later):                  https://github.com/PowerShell/xDhcpServer
-        xDnsServer (v1.5.0 or later):                   https://github.com/PowerShell/xDnsServer
-        xPSDesiredStateConfiguration (v4.0.0.0 or later https://github.com/PowerShell/xPSDesiredStateConfiguration 
-
+        xComputerManagement (v1.4.0.0 or later):         https://github.com/PowerShell/xComputerManagement
+        xNetworking/dev (v2.7.0.0 or later):             https://github.com/PowerShell/xNetworking
+        xActiveDirectory (v2.9.0.0 or later):            https://github.com/PowerShell/xActiveDirectory
+        xSmbShare (v1.1.0.0 or later):                   https://github.com/PowerShell/xSmbShare
+        xDhcpServer (v1.3.0 or later):                   https://github.com/PowerShell/xDhcpServer
+        xDnsServer (v1.5.0 or later):                    https://github.com/PowerShell/xDnsServer
+        xPSDesiredStateConfiguration (v4.0.0.0 or later) https://github.com/PowerShell/xPSDesiredStateConfiguration 
     @("xComputerManagement", "xNetworking", "xActiveDirectory", "xSmbShare", 
       "xPSDesiredStateConfiguration", "xDHCPServer", "xDnsServer", 
       "xPSDesiredStateConfiguration" ) | 
@@ -138,7 +137,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             ScopeID = '10.0.0.0';
             DnsDomain = 'corp.contoso.com';
             DnsServerIPAddress = '10.0.0.1';
-            Router = '10.0.0.2';
+            Router = '10.0.0.254';
             AddressFamily = 'IPv4';
             DependsOn = '[xDhcpServerScope]DhcpScope10_0_0_0';
         }
@@ -147,6 +146,15 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             DomainName = $node.DomainName;
             UserName = 'User1';
             Description = 'Lability Test Lab user';
+            Password = $Credential;
+            Ensure = 'Present';
+            DependsOn = '[xADDomain]ADDomain';
+        }
+
+        xADUser svc_adfs {
+            DomainName = $node.DomainName;
+            UserName = 'svc_adfs';
+            Description = 'ADFS service user';
             Password = $Credential;
             Ensure = 'Present';
             DependsOn = '[xADDomain]ADDomain';
@@ -196,6 +204,21 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Value = "C:\Program Files\Java\jdk1.8.0_112"
         }     
     } #end nodes JAHIA
+
+    node $AllNodes.Where({$_.Role -contains 'ADFS'}).NodeName {
+        WindowsFeature ADFSInstall
+        {
+            Ensure = "Present"
+            Name = "ADFS-Federation"
+        } 
+
+        WindowsFeature ADPS
+        {
+            Name = "RSAT-AD-PowerShell"
+            Ensure = "Present"
+        }
+
+    } #end nodes ADFS
 
     node $AllNodes.Where({$_.Role -contains 'JOINED'}).NodeName {
         ## Flip credential into username@domain.com

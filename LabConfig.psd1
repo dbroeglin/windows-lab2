@@ -15,11 +15,12 @@
             Lability_SwitchName         = 'Labnet'
             Lability_ProcessorCount     = 1
             Lability_StartupMemory      = 2GB
-            Lability_Media              = '2016_x64_Standard_Core_EN_Eval'           
+            Lability_Media              = '2016_x64_Standard_EN_Eval'           
             #Lability_Media              = '2012R2_x64_Standard_EN_V5_Eval'
+            Lability_Module             = 'xDscDiagnostics'
         }
         @{
-            NodeName                = 'DC1'
+            NodeName                = 'DC01'
             IPAddress               = '10.0.0.1'
             DnsServerAddress        = '127.0.0.1'
             Role                    = 'DC'
@@ -30,6 +31,11 @@
             Role                    = @('JOINED', 'JAHIA')
             Lability_Resource       = @('jdk-8u112-windows-x64.exe')
         }
+        @{
+            NodeName                = 'ADFS01' 
+            IPAddress               = '10.0.0.32'
+            Role                    = @('JOINED', 'ADFS')
+        }
     );
     NonNodeData = @{
         Lability = @{
@@ -37,7 +43,7 @@
             Media = @();
             Network = @(
                 @{ Name = 'Labnet';   Type = 'Internal'; }
-                @{ Name = 'Internet'; Type = 'Internal'; }
+                @{ Name = 'Internet'; Type = 'External'; NetAdapterName = 'Ethernet'; AllowManagementOS = $true; }
                 # @{ Name = 'Corpnet'; Type = 'External'; NetAdapterName = 'Ethernet'; AllowManagementOS = $true; }
                 <#
                     IPAddress: The desired IP address.
@@ -47,6 +53,10 @@
                     AddressFamily: IP address family: { IPv4 | IPv6 }
                 #>
             );
+            Module = @(
+                ## Downloads the latest published module version from the PowerShell Gallery
+                @{ Name = 'xDscDiagnostics' }      
+            )
             DSCResource = @(
                 ## Download published version from the PowerShell Gallery
                 @{ Name = 'xComputerManagement'; MinimumVersion = '1.3.0.0'; Provider = 'PSGallery'; }
