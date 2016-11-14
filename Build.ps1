@@ -5,6 +5,10 @@ Param(
 
 if (! $Global:LabilityCredentials) {
     $Global:LabilityCredentials = Get-Credential -UserName "Administrator" -Message "Lab admin password"
+
+    # Credentials to use after the domain is created and guests are joined
+    $Global:LabCredentials = New-Object -Type System.Management.Automation.PSCredential `
+        -ArgumentList "LAB\Administrator",$LabilityCredentials.Password
 }
 
 [String]$ConfigurationData = Join-Path $PSScriptRoot LabConfig.psd1
