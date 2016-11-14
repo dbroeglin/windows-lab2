@@ -1,34 +1,35 @@
 [CmdletBinding()]
 Param(
-    [switch]$Lab,
-    [switch]$Reset,
     [String]$VMName
 )
-    
-$ErrorActionPreference = "Stop"
 
 if (! $Global:LabilityCredentials) {
     $Global:LabilityCredentials = Get-Credential -UserName "Administrator" -Message "Lab admin password"
 }
 
 [String]$ConfigurationData = Join-Path $PSScriptRoot LabConfig.psd1
-$ConfigurationPath = "C:\Lability\Configurations\"
+$ConfigurationPath = (Get-LabHostDefault).ConfigurationPath
 
-if ($Lab) {
+task Build {
     . $PSScriptRoot\LabConfig.ps1
 
     LabConfig -ConfigurationData $ConfigurationData `
         -OutputPath $ConfigurationPath `
         -Credential $Global:LabilityCredentials
     Start-LabConfiguration -ConfigurationData $ConfigurationData `
-        -Credential $Global:LabilityCredentials
+        -Credential $Global:LabilityCredentials -Verbose
     Start-Lab -ConfigurationData $ConfigurationData
 }
 
-if ($Reset) {
+task ReBuild { 
+    assert($VMName)
     Reset-LabVM -Name $VMName -ConfigurationData $ConfigurationData `
         -Path $ConfigurationPath -NoSnapshot `
         -Credential $global:LabilityCredentials -Verbose | Start-VM
+}
+
+task Clean {
+    Remove-LabConfiguration -ConfigurationData .\LabConfig.psd1    
 }
 
 # New-NetIPAddress -IPAddress 10.0.0.254 -PrefixLength 24 -InterfaceIndex  (Get-NetAdapter -Name "vEthernet (Internal)").InterfaceIndex

@@ -24,7 +24,8 @@
             IPAddress               = '10.0.0.1'
             DnsServerAddress        = '127.0.0.1'
             Role                    = 'DC'
-        }        
+        }   
+        <#     
         @{
             NodeName                = 'JAHIA01' 
             IPAddress               = '10.0.0.31'
@@ -36,6 +37,7 @@
             IPAddress               = '10.0.0.32'
             Role                    = @('JOINED', 'ADFS')
         }
+        #>
     );
     NonNodeData = @{
         Lability = @{
@@ -62,7 +64,7 @@
                 @{ Name = 'xComputerManagement'; MinimumVersion = '1.3.0.0'; Provider = 'PSGallery'; }
                 ## If not specified, the provider defaults to the PSGallery.
                 @{ Name = 'xSmbShare'; MinimumVersion = '1.1.0.0'; }
-                @{ Name = 'xNetworking'; MinimumVersion = '2.7.0.0'; }
+                @{ Name = 'xNetworking'; RequiredVersion = '2.7.0.0'; }
                 @{ Name = 'xActiveDirectory'; MinimumVersion = '2.9.0.0'; }
                 @{ Name = 'xDnsServer'; MinimumVersion = '1.5.0.0'; }
                 @{ Name = 'xDhcpServer'; MinimumVersion = '1.3.0.0'; }
