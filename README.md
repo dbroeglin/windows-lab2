@@ -20,3 +20,15 @@ To rinse and repeat:
 To rinse and repeat _one_ VM only:
 
     Invoke-Build -File Build.ps1 -Task ReBuild -VMName DC01
+    
+## Troubleshooting
+
+The following commands might help troubleshooting (credentials are set globally when the build script is called) :
+
+    Invoke-Command -VMName LAB-DC01 -Credential $LabCredential { 
+        Get-WinEvent -LogName 'Microsoft-Windows-Powershell/Operational' | 
+            Select -First 10 | 
+            Select -Expand Message
+    }
+    
+Careful: the `-VMname` parameter works only with Win10 or Windows Server 2016.
