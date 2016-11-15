@@ -5,7 +5,7 @@ Vagrant based Windows Lab.
 
 ## Getting started
 
-    Install-Module Lability,InvokeBuild
+    Find-Module InvokeBuild,Lability | Install-Module
 
     # TODO: Lability setup
 
