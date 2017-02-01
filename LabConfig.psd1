@@ -25,6 +25,15 @@
             DnsServerAddress        = '127.0.0.1'
             Role                    = 'DC'
         }   
+        @{
+            NodeName                    = 'NS01'
+            # NSIP: 10.0.0.10, SNIP: 10.0.0.11
+            Lability_SwitchName         = @('Labnet', 'Labnet')
+            Lability_ProcessorCount     = 2
+            Lability_StartupMemory      = 2GB
+            Lability_Media              = 'NSVPX_11_1'
+            Lability_MacAddress         = @('00:15:5D:7E:31:00', '00:15:5D:7E:31:01')
+        }          
         <#     
         @{
             NodeName                = 'JAHIA01' 
