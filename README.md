@@ -63,10 +63,13 @@ with a configuration like:
 
 and configure the NSIP through the NetScaler console.
 
+Install the Netscaler PowerShell module: 
+
+    Find-Module Netscaler | Install-Module
+
 The _Host ID_ will be `00155d7e3100`. Get a license file and finish the Netscaler 
 configuration with the following commands:
 
-    Find-Module Netscaler | Install-Module
     $session = Connect-NetScaler -IPAddress 10.0.0.10 -PassThru
     Add-NSIPResource -IPAddress 10.0.0.11 -SubnetMask 255.255.255.0 -Type SNIP  -Session $session
     Set-NSHostname  -Hostname ns01 -Session $Session -Force

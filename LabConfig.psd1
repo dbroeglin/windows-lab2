@@ -27,7 +27,9 @@
         }   
         @{
             NodeName                    = 'NS01'
-            # NSIP: 10.0.0.10, SNIP: 10.0.0.11
+            # NSIP: 10.0.0.10 is not set automatically but here to be used by scripts
+            NSIP                        = '10.0.0.10'
+            SNIP                        = '10.0.0.11'
             Lability_SwitchName         = @('Labnet', 'Labnet')
             Lability_ProcessorCount     = 2
             Lability_StartupMemory      = 2GB
