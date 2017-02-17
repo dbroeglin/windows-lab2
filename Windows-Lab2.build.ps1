@@ -63,6 +63,10 @@ task NSPrepare {
     $Script:session = Connect-NetScaler -IPAddress $NSConfigurationData.NSIP -Credential $Credentials -PassThru
 }
 
+task NSConfig NSPrepare, {
+    & "$PSScriptRoot\NSConfig.ps1"
+}
+
 task NSSetup NSPrepare, {
     Add-NSIPResource -IPAddress $NsConfigurationData.SNIP -SubnetMask 255.255.255.0 -Type SNIP -Session $session
     Set-NSHostname  -Hostname $($NsConfigurationData.NodeName.ToLower()) -Session $Session -Force
