@@ -12,7 +12,7 @@
             #CertificateFile = "$env:AllUsersProfile\Lability\Certificates\LabClient.cer";
             #Thumbprint = 'AAC41ECDDB3B582B133527E4DE0D2F8FEB17AAB2';
             PSDscAllowDomainUser        = $true; # Removes 'It is not recommended to use domain credential for node X' messages
-            Lability_SwitchName         = 'Labnet'
+            Lability_SwitchName         = 'LabNet'
             Lability_ProcessorCount     = 1
             Lability_StartupMemory      = 2GB
             Lability_Media              = '2016_x64_Standard_EN_Eval'           
@@ -20,21 +20,21 @@
             Lability_Module             = 'xDscDiagnostics'
         }
         @{
-            NodeName                = 'DC01'
-            IPAddress               = '10.0.0.1'
-            DnsServerAddress        = '127.0.0.1'
-            Role                    = 'DC'
+            NodeName                    = 'DC01'
+            IPAddress                   = '10.0.0.1'
+            DnsServerAddress            = '127.0.0.1'
+            Role                        = 'DC'
         }   
         @{
             NodeName                    = 'NS01'
-            # NSIP: 10.0.0.10 is not set automatically but here to be used by scripts
+            # NSIP: 10.0.0.10 is not set by lability but here to be used by scripts
             NSIP                        = '10.0.0.10'
-            SNIP                        = '10.0.0.11'
-            Lability_SwitchName         = @('Labnet', 'Labnet')
+            VIP                         = '10.0.0.11'
+            SNIP                        = '10.0.0.12'
             Lability_ProcessorCount     = 2
             Lability_StartupMemory      = 2GB
             Lability_Media              = 'NSVPX_11_1'
-            Lability_MacAddress         = @('00:15:5D:7E:31:00', '00:15:5D:7E:31:01')
+            Lability_MacAddress         = '00:15:5D:7E:31:00'
         }          
         <#     
         @{
@@ -71,15 +71,13 @@
                 @{ Name = 'xDscDiagnostics' }      
             )
             DSCResource = @(
-                ## Download published version from the PowerShell Gallery
-                @{ Name = 'xComputerManagement'; MinimumVersion = '1.3.0.0'; Provider = 'PSGallery'; }
-                ## If not specified, the provider defaults to the PSGallery.
-                @{ Name = 'xSmbShare'; MinimumVersion = '1.1.0.0'; }
-                @{ Name = 'xNetworking'; RequiredVersion = '2.7.0.0'; }
-                @{ Name = 'xActiveDirectory'; MinimumVersion = '2.9.0.0'; }
-                @{ Name = 'xDnsServer'; MinimumVersion = '1.5.0.0'; }
-                @{ Name = 'xDhcpServer'; MinimumVersion = '1.3.0.0'; }
-                @{ Name = 'xPSDesiredStateConfiguration'; MinimumVersion = '4.0.0.0'; }
+                @{ Name = 'xComputerManagement';          RequiredVersion = '1.8.0.0' }
+                @{ Name = 'xSmbShare';                    RequiredVersion = '2.0.0.0' }
+                @{ Name = 'xNetworking';                  RequiredVersion = '3.2.0.0' }
+                @{ Name = 'xActiveDirectory';             RequiredVersion = '2.9.0.0' }
+                @{ Name = 'xDnsServer';                   RequiredVersion = '1.5.0.0' }
+                @{ Name = 'xDhcpServer';                  RequiredVersion = '1.3.0.0' }
+                @{ Name = 'xPSDesiredStateConfiguration'; RequiredVersion = '6.0.0.0' }
                 ## The 'GitHub# provider can download modules directly from a GitHub repository, for example:
                 ## @{ Name = 'Lability'; Provider = 'GitHub'; Owner = 'VirtualEngine'; Repository = 'Lability'; Branch = 'dev'; }
             );

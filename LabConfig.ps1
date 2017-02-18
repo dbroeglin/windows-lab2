@@ -1,29 +1,21 @@
 Configuration LabConfig {
-<#
-    Requires the following custom DSC resources:
-        xComputerManagement (v1.4.0.0 or later):         https://github.com/PowerShell/xComputerManagement
-        xNetworking/dev (v2.7.0.0 or later):             https://github.com/PowerShell/xNetworking
-        xActiveDirectory (v2.9.0.0 or later):            https://github.com/PowerShell/xActiveDirectory
-        xSmbShare (v1.1.0.0 or later):                   https://github.com/PowerShell/xSmbShare
-        xDhcpServer (v1.3.0 or later):                   https://github.com/PowerShell/xDhcpServer
-        xDnsServer (v1.5.0 or later):                    https://github.com/PowerShell/xDnsServer
-        xPSDesiredStateConfiguration (v4.0.0.0 or later) https://github.com/PowerShell/xPSDesiredStateConfiguration 
-    @("xComputerManagement", "xNetworking", "xActiveDirectory", "xSmbShare", 
-      "xPSDesiredStateConfiguration", "xDHCPServer", "xDnsServer", 
-      "xPSDesiredStateConfiguration" ) | 
-   % { Find-Module $_; Install-Module $_ }
-        
-#>
-    param (
+    Param (
         [Parameter()] 
         [PSCredential] 
         [System.Management.Automation.Credential()]
         $Credential = (Get-Credential -Credential 'Administrator'),
         [Parameter()] [String] $DownloadDir = "C:\Downloads"
     )
-    Import-DscResource -Module xComputerManagement, xNetworking, xActiveDirectory
-    Import-DscResource -Module xSmbShare, PSDesiredStateConfiguration
-    Import-DscResource -Module xDHCPServer, xDnsServer, xPSDesiredStateConfiguration
+
+    Import-DscResource -ModuleName PSDesiredStateConfiguration
+
+    Import-DscResource -ModuleName xComputerManagement -ModuleVersion 1.8.0.0
+    Import-DscResource -ModuleName xSmbShare -ModuleVersion 2.0.0.0
+    Import-DscResource -ModuleName xNetworking -ModuleVersion 3.2.0.0
+    Import-DscResource -ModuleName xActiveDirectory -ModuleVersion 2.9.0.0
+    Import-DscResource -ModuleName xDnsServer -ModuleVersion 1.5.0.0
+    Import-DscResource -ModuleName xDhcpServer -ModuleVersion 1.3.0.0
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 6.0.0.0
 
     node $AllNodes.Where({$true}).NodeName {
         LocalConfigurationManager {
@@ -37,7 +29,7 @@ Configuration LabConfig {
             xIPAddress 'PrimaryIPAddress' {
                 IPAddress      = $node.IPAddress;
                 InterfaceAlias = $node.InterfaceAlias;
-                SubnetMask     = $node.SubnetMask;
+                PrefixLength   = $node.SubnetMask;
                 AddressFamily  = $node.AddressFamily;
             }
 
@@ -87,7 +79,7 @@ Configuration LabConfig {
         }
     } #end nodes ALL
 
-node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
+node $AllNodes.Where({$_.Role -contains 'DC1'}).NodeName {
         ## Flip credential into username@domain.com
         $domainCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ("$($Credential.UserName)@$($node.DomainName)", $Credential.Password);
 
