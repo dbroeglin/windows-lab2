@@ -15,7 +15,7 @@
             Lability_SwitchName         = 'LabNet'
             Lability_ProcessorCount     = 1
             Lability_StartupMemory      = 2GB
-            Lability_Media              = '2016_x64_Standard_EN_Eval'           
+            Lability_Media              = '2016_x64_Standard_EN_Eval'
             #Lability_Media              = '2012R2_x64_Standard_EN_V5_Eval'
             Lability_Module             = 'xDscDiagnostics'
         }
@@ -24,27 +24,48 @@
             IPAddress                   = '10.0.0.1'
             DnsServerAddress            = '127.0.0.1'
             Role                        = 'DC'
-        }   
+        }
         @{
             NodeName                    = 'NS01'
+
             # NSIP: 10.0.0.10 is not set by lability but here to be used by scripts
             NSIP                        = '10.0.0.10'
             VIP                         = '10.0.0.11'
             SNIP                        = '10.0.0.12'
+
+            # Duplicate those for build scripts
+            Gateway                     = '10.0.0.254'
+            Netmask                     = '255.255.255.0'
+
             Lability_ProcessorCount     = 2
             Lability_StartupMemory      = 2GB
             Lability_Media              = 'NSVPX_11_1'
             Lability_MacAddress         = '00:15:5D:7E:31:00'
-        }          
-        <#     
+        }
         @{
-            NodeName                = 'JAHIA01' 
+            NodeName                    = 'NS02'
+
+            # NSIP: 10.0.0.20 is not set by lability but here to be used by scripts
+            NSIP                        = '10.0.0.20'
+
+            # Duplicate those for build scripts
+            Gateway                     = '10.0.0.254'
+            Netmask                     = '255.255.255.0'
+
+            Lability_ProcessorCount     = 2
+            Lability_StartupMemory      = 2GB
+            Lability_Media              = 'NSVPX_11_1'
+            Lability_MacAddress         = '00:15:5D:7E:31:01'
+        }
+        <#
+        @{
+            NodeName                = 'JAHIA01'
             IPAddress               = '10.0.0.31'
             Role                    = @('JOINED', 'JAHIA')
             Lability_Resource       = @('jdk-8u112-windows-x64.exe')
         }
         @{
-            NodeName                = 'ADFS01' 
+            NodeName                = 'ADFS01'
             IPAddress               = '10.0.0.32'
             Role                    = @('JOINED', 'ADFS')
         }
@@ -53,7 +74,18 @@
     NonNodeData = @{
         Lability = @{
             EnvironmentPrefix = 'LAB-';
-            Media = @();
+            Media = @(
+                @{
+                    Id              = "NSVPX_11_1"
+                    Filename        = "NSVPX-HyperV-11.1-50.10_nc.vhd"
+                    Description     = "Citrix NetScaler 11.1 VPX Build 50.10"
+                    Architecture    = "x64"
+                    MediaType       = "VHD"
+                    OperatingSystem = "Linux"
+                    Uri             = "file:///Sources/windows-lab2/Downloads/NSVPX-HyperV-11.1-50.10_nc/Virtual Hard Disks/Dynamic.vhd"
+                    # Checksum      = 4C452571BC7C8E35D8AD92CF01A5805C # Use Get-FileHash -Algorithm MD5
+                }
+            );
             Network = @(
                 @{ Name = 'Labnet';   Type = 'Internal'; }
                 @{ Name = 'Internet'; Type = 'External'; NetAdapterName = 'Ethernet'; AllowManagementOS = $true; }
@@ -68,7 +100,7 @@
             );
             Module = @(
                 ## Downloads the latest published module version from the PowerShell Gallery
-                @{ Name = 'xDscDiagnostics' }      
+                @{ Name = 'xDscDiagnostics' }
             )
             DSCResource = @(
                 @{ Name = 'xComputerManagement';          RequiredVersion = '1.8.0.0' }
@@ -89,7 +121,7 @@
                     Checksum = '1C765B83260C3E691A7B716E21B290C7'
                     DestinationPath = '\Downloads'
                 }
-            );             
+            );
         };
     };
 };
