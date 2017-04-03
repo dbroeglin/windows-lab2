@@ -63,6 +63,7 @@ log in is required, just create a Citrix account)
 1. Unzip the downloaded file:
         Expand-Archive $HOME\Downloads\NSVPX-HyperV-11.1-50.10_nc.zip
 1. Register the netscaler disk as a Lability media:
+
         $NSVPX111 = @{
             Id              = "NSVPX_11_1"
             Filename        = "NSVPX-HyperV-11.1-50.10_nc.vhd"
