@@ -79,7 +79,7 @@ Configuration LabConfig {
         }
     } #end nodes ALL
 
-node $AllNodes.Where({$_.Role -contains 'DC1'}).NodeName {
+node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
         ## Flip credential into username@domain.com
         $domainCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ("$($Credential.UserName)@$($node.DomainName)", $Credential.Password);
 

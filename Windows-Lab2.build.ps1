@@ -27,7 +27,7 @@ task CheckModuleVersions {
         $Module = Get-Module -ListAvailable $_.Name
 
         if (-not @($Module.Version) -contains $Spec.RequiredVersion) {
-            echo "Mismatch for $($Module.Name): $($Module.Version) <> $($Spec.RequiredVersion)"
+            Write-Host -ForegroundColor Red "Mismatch for $($Module.Name): $($Module.Version) <> $($Spec.RequiredVersion)"
         }
     }
 }
@@ -118,6 +118,7 @@ task NSConfig NSPrepare, {
 
 task NSSetup NSPrepare, {
     Add-NSIPResource -IPAddress $NsConfigurationData.SNIP -SubnetMask 255.255.255.0 -Type SNIP -Session $session
+    Add-NSIPResource -IPAddress $NsConfigurationData.VIP -SubnetMask 255.255.255.0 -Type VIP -Session $session
     Set-NSHostname  -Hostname $($NsConfigurationData.NodeName.ToLower()) -Session $Session -Force
     if (!(Get-NSSystemFile -FileLocation /nsconfig/license -Filename license.lic -ErrorAction SilentlyContinue)) {
         Install-NSLicense -Path .\license.lic -Session $Session

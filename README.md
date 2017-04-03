@@ -1,6 +1,6 @@
 # Lability based Windows Lab
 
-This lab is a new installment of my previous https://github.com/dbroeglin/windows-lab 
+This lab is a new installment of my previous https://github.com/dbroeglin/windows-lab
 Vagrant based Windows Lab.
 
 ## Getting started
@@ -36,9 +36,9 @@ A full cleanup can be done with (careful though, this even cleans up parts of La
 
 ## Troubleshooting
 
-### Running the DSC configuration 
+### Running the DSC configuration
 
-    Invoke-Command -Credential $LabCredential -VMName LAB-DC01 { 
+    Invoke-Command -Credential $LabilityCredentials -VMName LAB-DC01 {
         Start-DscConfiguration -UseExisting -Debug -Wait
     }
 
@@ -46,12 +46,12 @@ A full cleanup can be done with (careful though, this even cleans up parts of La
 
 The following commands might help troubleshooting (credentials are set globally when the build script is called) :
 
-    Invoke-Command -VMName LAB-DC01 -Credential $LabCredential { 
-        Get-WinEvent -LogName 'Microsoft-Windows-Powershell/Operational' | 
-            Select -First 10 | 
+    Invoke-Command -VMName LAB-DC01 -Credential $LabilityCredentials {
+        Get-WinEvent -LogName 'Microsoft-Windows-Powershell/Operational' |
+            Select -First 10 |
             Select -Expand Message
     }
-    
+
 Note: the `-VMname` parameter works only with Win10 or Windows Server 2016.
 
 ## Netscaler setup
@@ -90,17 +90,17 @@ In the lab use the following configuration:
         Lability_StartupMemory      = 2GB
         Lability_Media              = 'NSVPX_11_1'
         Lability_MacAddress         = @('00:15:5D:7E:31:00')
-    } 
+    }
 
-and configure the NSIP through the NetScaler console: (NSIP: 10.0.0.10, 
+and configure the NSIP through the NetScaler console: (NSIP: 10.0.0.10,
 Netmask 255.255.255.0, GW: 10.0.0.254)
 
-Install the Netscaler PowerShell module: 
+Install the Netscaler PowerShell module:
 
     Find-Module Netscaler | Install-Module
 
-The _Host ID_ will be `00155d7e3100`. Get a license file, save it as `license.lic` 
-and finish the Netscaler configuration with the following commands (this is the 
+The _Host ID_ will be `00155d7e3100`. Get a license file, save it as `license.lic`
+and finish the Netscaler configuration with the following commands (this is the
 minimal configuration required to access the Web configuration GUI):
 
     $SecurePassword = ConvertTo-SecureString 'nsroot' -AsPlainText -Force
