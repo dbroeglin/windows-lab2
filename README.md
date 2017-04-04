@@ -112,3 +112,24 @@ minimal configuration required to access the Web configuration GUI):
     Add-NSIPResource -IPAddress 10.0.0.11 -SubnetMask 255.255.255.0 -Type SNIP  -Session $session
     Install-NSLicense -Path .\license.lic -Session $Session
     Restart-NetScaler -WarmReboot -Wait -SaveConfig -Session $Session -Force
+
+
+## Certificate creation
+
+On Windows Server 2016 or Windows 10:
+    
+    $password = ConvertTo-SecureString -String "Passw0rd" -Force -AsPlainText
+    dir Cert:\LocalMachine\My\ | Where-Object Subject -like '*extlab*' | Remove-Item
+    New-SelfSignedCertificate -certstorelocation cert:\localmachine\my `
+            -dnsname sts.extlab.local -KeySpec KeyExchange
+    "aaa.extlab.local", "www.extlab.local" | ForEach {
+        $Fqdn = $_
+        New-SelfSignedCertificate -certstorelocation cert:\localmachine\my `
+            -dnsname $Fqdn
+    }
+    dir Cert:\LocalMachine\My | Where-Object Subject -like '*extlab*' | % {  
+        Export-PfxCertificate -Cert $_ -FilePath "Data/$($_.DnsNameList).pfx" `
+            -Password $password -Force
+    }
+
+    
