@@ -65,17 +65,9 @@ $ReverseProxies | ForEach-Object { New-ReverseProxy @_ }
 
 $ContentSwitchingName = "cs-lab"
 
-if (-not (Invoke-Nitro -Method GET -Type csvserver -Resource $ContentSwitchingName -ErrorAction SilentlyContinue)) {
-    Write-Verbose "  ---- Creating content switching virtual server '$ContentSwitchingName'... "    
-    Invoke-Nitro -Method POST -Type csvserver -Payload @{
-            # {"name":"cs-test","servicetype":"SSL","ipv46":"10.0.0.200","port":"443","td":"","range":"1","comment":"","state":"ENABLED","rhistate":"PASSIVE","appflowlog":"ENABLED"}
-            name        = $ContentSwitchingName
-            servicetype = "SSL"
-            ipv46       = "10.0.0.200"
-            port        = "443"
-        } -Action add -Force
+if (-not (Get-NSCSVirtualServer -Name $ContentSwitchingName -ErrorAction SilentlyContinue)) {
+    New-NSCSVirtualServer -Name $ContentSwitchingName -ServiceType SSL -IPAddress 10.0.0.200 -port 443    
 }
-
 
 <#Write-Verbose "  ---- Activating SNI on '$ContentSwitchingName'... "    
 Invoke-Nitro -Method PUT -Type sslvserver -Payload @{
@@ -109,8 +101,6 @@ if (-not (Invoke-Nitro -Method GET -Type csvserver_cspolicy_binding -ErrorAction
             priority        = 100
         } -Action add -Force
 }
-
-
 
 $TargetVServer = "aaa-server"
 $ContentSwitchingActionName = "cs-aaa"
@@ -146,8 +136,6 @@ if (-not (Invoke-Nitro -Method GET -Type csvserver_cspolicy_binding -ErrorAction
             priority        = 99
         } -Action add -Force
 }
-
-
 
 Write-Verbose "Saving configuration..."
 Save-NSConfig
