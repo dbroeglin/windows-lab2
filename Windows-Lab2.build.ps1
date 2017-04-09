@@ -60,7 +60,6 @@ task Build {
                 Set-VMDvdDrive -VMName "LAB-$($_.NodeName)" -Path $UserDataISOFile
             } finally {
                 Remove-Item $PWD/userdata
-
             }
         }
 

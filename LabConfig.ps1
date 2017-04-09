@@ -3,8 +3,22 @@ Configuration LabConfig {
         [Parameter()] 
         [PSCredential] 
         [System.Management.Automation.Credential()]
-        $Credential = (Get-Credential -Credential 'Administrator'),
-        [Parameter()] [String] $DownloadDir = "C:\Downloads"
+        $Credential = [PSCredential]::new("Administrator", (ConvertTo-SecureString -AsPlainText -Force "Passw0rd")),
+
+        [Parameter()] [String] $DownloadDir = "C:\Downloads",
+
+        [PSCredential] 
+        [System.Management.Automation.Credential()]
+        $AdfsSvcCredential = [PSCredential]::new("svc_adfs", (ConvertTo-SecureString -AsPlainText -Force "Passw1rd")),
+
+        [String]
+        $AdfsDisplayName = 'Lab ADFS',
+
+        [String]
+        $AdfsFQDN = 'sts.extlab.local',
+
+        [String]
+        $AdfsCertThumbprint = '1BC84A035D2264F1DB41A40B24691119B9616F79'
     )
 
     Import-DscResource -ModuleName PSDesiredStateConfiguration
@@ -145,9 +159,9 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
 
         xADUser svc_adfs {
             DomainName = $node.DomainName;
-            UserName = 'svc_adfs';
+            UserName = $AdfsSvcCredential.UserName;
             Description = 'ADFS service user';
-            Password = $Credential;
+            Password = $AdfsSvcCredential;
             Ensure = 'Present';
             DependsOn = '[xADDomain]ADDomain';
         }
@@ -198,18 +212,94 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
     } #end nodes JAHIA
 
     node $AllNodes.Where({$_.Role -contains 'ADFS'}).NodeName {
-        WindowsFeature ADFSInstall
+        WindowsFeature ADFS
         {
             Ensure = "Present"
             Name = "ADFS-Federation"
         } 
 
-        WindowsFeature ADPS
+        WindowsFeature RSAT-AD-PowerShell
         {
             Name = "RSAT-AD-PowerShell"
             Ensure = "Present"
         }
 
+        # sts certificate 1BC84A035D2264F1DB41A40B24691119B9616F79
+
+        Script ADFSFarm
+        {
+            GetScript = {
+
+            }
+            SetScript = {
+                ### If ADFS Farm shoud be present, then go ahead and install it.
+                if ($this.Ensure -eq [Ensure]::Present) {
+                    try{
+                        $AdfsProperties = Get-AdfsProperties -ErrorAction stop;
+                    }
+                    catch {
+                        $AdfsProperties = $false
+                    }
+
+                    if ($AdfsProperties) {
+                        Write-Verbose -Message 'Configuring Active Directory Federation Services (ADFS) properties.';
+                        $AdfsProperties = @{
+                            DisplayName = $AdfsDisplayName;
+                        };
+                        Set-AdfsProperties @AdfsProperties;
+                    } else {
+                        Write-Verbose -Message 'Installing Active Directory Federation Services (ADFS) farm.';
+                        $AdfsFarm = @{
+                            ServiceAccountCredential      = $AdfsSvcCredential
+                            InstallCredential             = $Credential
+                            CertificateThumbprint         = $AdfsCertThumbprint
+                            FederactionServiceDisplayName = $AdfsDisplayName
+                            FederationServiceName         = $AdfsFQDN
+                        }
+                        InstallADFSFarm @AdfsFarm;
+                    }
+                }
+
+                if ($this.Ensure -eq [Ensure]::Absent) {
+                    ### From the help for Remove-AdfsFarmNode: The Remove-AdfsFarmNode cmdlet is deprecated. Instead, use the Uninstall-WindowsFeature cmdlet.
+                    Uninstall-WindowsFeature -Name ADFS-Federation;
+                }
+
+                return;
+            }
+            TestScript = {
+                $Compliant = $true;
+
+                Write-Verbose -Message 'Testing for presence of Active Directory Federation Services (ADFS) farm.';
+
+                try {
+                    $Properties = Get-AdfsProperties -ErrorAction Stop;
+                }
+                catch {
+                    $Compliant = $false;
+                    return $Compliant;
+                }
+
+                if ($this.Ensure -eq 'Present') {
+                    Write-Verbose -Message 'Checking for presence of ADFS Farm.';
+                    if ($this.ServiceName -ne $Properties.HostName) {
+                        Write-Verbose -Message 'ADFS Service Name doesn''t match the desired state.';
+                        $Compliant = $false;
+                    }
+                }
+
+                if ($this.Ensure -eq 'Absent') {
+                    Write-Verbose -Message 'Checking for absence of ADFS Farm.';
+                    if ($Properties) {
+                        Write-Verbose -Message
+                        $Compliant = $false;
+                    }
+                }
+
+                return $Compliant;                
+            }
+            DependsOn = @('[WindowsFeature]ADFS')
+        }
     } #end nodes ADFS
 
     node $AllNodes.Where({$_.Role -contains 'JOINED'}).NodeName {

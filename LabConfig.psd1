@@ -64,12 +64,12 @@
             Role                    = @('JOINED', 'JAHIA')
             Lability_Resource       = @('jdk-8u112-windows-x64.exe')
         }
+        #>
         @{
             NodeName                = 'ADFS01'
             IPAddress               = '10.0.0.32'
             Role                    = @('JOINED', 'ADFS')
         }
-        #>
     );
     NonNodeData = @{
         Lability = @{
@@ -110,6 +110,7 @@
                 @{ Name = 'xDnsServer';                   RequiredVersion = '1.5.0.0' }
                 @{ Name = 'xDhcpServer';                  RequiredVersion = '1.3.0.0' }
                 @{ Name = 'xPSDesiredStateConfiguration'; RequiredVersion = '6.0.0.0' }
+                @{ Name = 'xCertificate';                 RequiredVersion = '2.4.0.0' }
                 ## The 'GitHub# provider can download modules directly from a GitHub repository, for example:
                 ## @{ Name = 'Lability'; Provider = 'GitHub'; Owner = 'VirtualEngine'; Repository = 'Lability'; Branch = 'dev'; }
             );
