@@ -28,7 +28,7 @@ $AuthenticationServers = @(
         Port             = "443"
         SAMLCertificate  = 'adfs_token_signing'
         DomainName       = 'extlab.local'
-        ADFSFQDN         = 'adfs.extlab.local'        
+        ADFSFQDN         = 'sts.extlab.local'        
     }    
 )
 
@@ -49,7 +49,7 @@ Write-Verbose "  -- Setting up features..."
 Enable-NSFeature -Session $Session -Force -Name "aaa", "lb", "rewrite", "ssl", "sslvpn", "cs"
 
 Write-Verbose "  -- Uploading certificates..."
-"aaa.extlab.local", "adfs.extlab.local", "www.extlab.local" | ForEach {
+"aaa.extlab.local", "sts.extlab.local", "www.extlab.local" | ForEach {
     Import-Certificate -CertificateName $_ -LocalFilename ".\Data\$_.pfx" -Filename "$_.pfx" -Password Passw0rd    
 }
 

@@ -47,6 +47,10 @@ function New-ReverseProxy {
     $ServerName = "srv-$InternalFQDN"
     
     Write-Verbose "  -- Creating reverse proxy $ExternalFQDN -> $InternalFQDN..."
+    if (Get-NSLBVirtualServer -Name $VServerName -ErrorAction SilentlyContinue) {
+        Write-Verbose "  -- Already created: skipping."
+        return
+    }
     New-NSLBServer -Name $ServerName -Domain $InternalFQDN
     Enable-NSLBServer -Name $ServerName -Force
     New-NSLBServiceGroup -Name svg-$ExternalFQDN -Protocol HTTP
@@ -129,7 +133,7 @@ function New-AAAConfig {
                 rule      = "ns_true"
             } -Action add -Force
     }
-    if (-not (Invoke-Nitro -Method GET -Type vpnvserver_authenticationsamlpolicy_binding -Resource $Name -ErrorAction SilentlyContinue)) {
+    if (-not (Invoke-Nitro -Method GET -Type authenticationvserver_authenticationsamlpolicy_binding -Resource $Name -ErrorAction SilentlyContinue)) {
         Write-Verbose "  ---- Binding authentication policy... "    
         Invoke-Nitro -Method POST -Type authenticationvserver_authenticationsamlpolicy_binding -Payload @{
                 policy    = $SAMLPolicyName
