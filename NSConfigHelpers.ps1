@@ -41,31 +41,68 @@ function New-ReverseProxy {
         [String]$InternalFQDN,
         [String]$CertificateName = $ExternalFQDN,
         [String]$AuthenticationHost,
-        [String]$AuthenticationVServerName               
+        [String]$AuthenticationVServerName,
+        [String]$ContentSwitchingName,
+        [String]$Priority,
+        [String]$Type = ''              
     )
-    $VServerName = "vsrv-$ExternalFQDN"
-    $ServerName = "srv-$InternalFQDN"
+    $VServerName                = "vsrv-$ExternalFQDN"
+    $ServerName                 = "srv-$InternalFQDN"
+    $ContentSwitchingPolicyName = "cs-pol-$ExternalFQDN"
     
     Write-Verbose "  -- Creating reverse proxy $ExternalFQDN -> $InternalFQDN..."
     if (Get-NSLBVirtualServer -Name $VServerName -ErrorAction SilentlyContinue) {
         Write-Verbose "  -- Already created: skipping."
         return
     }
+
+    Write-Verbose "  ---- Creating LB Servers '$ServerName'..."
     New-NSLBServer -Name $ServerName -Domain $InternalFQDN
     Enable-NSLBServer -Name $ServerName -Force
     New-NSLBServiceGroup -Name svg-$ExternalFQDN -Protocol HTTP
     New-NSLBServiceGroupMember -Name svg-$ExternalFQDN -ServerName $ServerName
 
-    New-NSLBVirtualServer -Name $VServerName -IPAddress $IPAddress -ServiceType SSL -Port 443
+    Write-Verbose "  ---- Creating LB VServer '$VServerName'..."
+    New-NSLBVirtualServer -Name $VServerName -NonAddressable -ServiceType SSL
     Add-NSLBVirtualServerBinding -VirtualServerName $VServerName -ServiceGroupName svg-$ExternalFQDN
     Enable-NSLBVirtualServer -Name $VServerName -Force
 
+
+    # We need to bind the certificate to the virtual server even if it is also
+    # bound to the CS server
+    Write-Verbose "  ---- Binding certificate '$CertificateName' to $VServerName..."
     Add-NSLBSSLVirtualServerCertificateBinding -VirtualServerName $VServerName -Certificate $CertificateName
+
+    Write-Verbose "  ---- Binding certificate '$CertificateName' to $ContentSwitchingName..."
+    Add-NSLBSSLVirtualServerCertificateBinding -VirtualServerName $ContentSwitchingName -Certificate $CertificateName -SniCert $True
     
+    Write-Verbose "  ---- Adding policies..."
     New-NSRewriteAction -Name "act-proxy-host-$InternalFQDN" -Type Replace -Target 'HTTP.REQ.HOSTNAME' -Expression "`"$InternalFQDN`""    
     New-NSRewritePolicy -Name "pol-proxy-host-$InternalFQDN" -ActionName "act-proxy-host-$InternalFQDN" -Rule "true"
     Add-NSLBVirtualServerRewritePolicyBinding -VirtualServerName $VServerName -PolicyName "pol-proxy-host-$InternalFQDN" `
-        -BindPoint Request -Priority 1    
+        -BindPoint Request -Priority 100
+
+
+    if (-not (Invoke-Nitro -Method GET -Type cspolicy -Resource $ContentSwitchingPolicyName -ErrorAction SilentlyContinue)) {
+        Write-Verbose "  ---- Creating content switching policy for '$ExternalFQDN'... "    
+        Invoke-Nitro -Method POST -Type cspolicy -Payload @{
+                # "cspolicy":{"policyname":"cs-pol-toto","rule":"HTTP.REQ.HOSTNAME.EQ(\"www.extlab.local\")"}
+                policyname  = $ContentSwitchingPolicyName
+                rule        = "HTTP.REQ.HOSTNAME.EQ(`"$ExternalFQDN`")"
+            } -Action add -Force
+    }
+
+    if (-not (Invoke-Nitro -Method GET -Type csvserver_cspolicy_binding -ErrorAction SilentlyContinue)) {
+        Write-Verbose "  ---- Creating content switching binding '$ContentSwitchingName' <- '$VServerName' ($Priority)... "    
+        Invoke-Nitro -Method POST -Type csvserver_cspolicy_binding -Payload @{
+                # "csvserver_cspolicy_binding":{"policyname":"cs-pol-toto","priority":"100","gotopriorityexpression":"END","targetlbvserver":"vsrv-www.extlab.local","name":"cs-lab",
+                #"bindpoint":"REQUEST"}}
+                policyname      = $ContentSwitchingPolicyName
+                targetlbvserver = $VServerName
+                name            = $ContentSwitchingName
+                priority        = $Priority
+            } -Action add -Force
+    }
 
     Write-Verbose "  ---- Setting up authentication for $ExternalFQDN..."
     Invoke-Nitro -Type lbvserver -Method PUT -Payload @{ 
