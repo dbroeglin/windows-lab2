@@ -170,7 +170,7 @@ function New-AAAConfig {
                 rule      = "ns_true"
             } -Action add -Force
     }
-    if (-not (Invoke-Nitro -Method GET -Type authenticationvserver_authenticationsamlpolicy_binding -Resource $Name -ErrorAction SilentlyContinue)) {
+   if (-not ((Invoke-Nitro -Method GET -Type authenticationvserver_authenticationsamlpolicy_binding -Resource $Name).psobject.Properties.Name -contains 'authenticationvserver_authenticationsamlpolicy_binding')) {
         Write-Verbose "  ---- Binding authentication policy... "    
         Invoke-Nitro -Method POST -Type authenticationvserver_authenticationsamlpolicy_binding -Payload @{
                 policy    = $SAMLPolicyName
