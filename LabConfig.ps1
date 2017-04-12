@@ -211,6 +211,9 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
         }     
     } #end nodes JAHIA
 
+    node $AllNodes.Where({$_.Role -contains 'WEB'}).NodeName {
+        
+    } #end nodes JAHIA
     node $AllNodes.Where({$_.Role -contains 'ADFS'}).NodeName {
         WindowsFeature ADFS
         {

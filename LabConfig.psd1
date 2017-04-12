@@ -70,6 +70,11 @@
             IPAddress               = '10.0.0.32'
             Role                    = @('JOINED', 'ADFS')
         }
+        @{
+            NodeName                = 'WEB01'
+            IPAddress               = '10.0.0.33'
+            Role                    = @('JOINED', 'WEB')
+        }
     );
     NonNodeData = @{
         Lability = @{
