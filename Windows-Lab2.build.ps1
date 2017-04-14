@@ -4,8 +4,13 @@ Param(
     [String]$ConfigurationFile = "LabConfig.psd1",
     [String]$NodeName          = "NS01",
     [String]$NsUsername        = "nsroot",
-    [String]$NsPassword        = "nsroot"
+    [String]$NsPassword        = "nsroot",
+    [String]$LabVmPrefix       = "LAB"
 )
+
+if ($VmName) {
+    $LabVMName = "$LabVmPrefix-$VMName"
+}
 
 if (! $Global:LabilityCredentials) {
     $Global:LabilityCredentials = Get-Credential -UserName "Administrator" -Message "Lab admin password"
@@ -16,6 +21,7 @@ if (! $Global:LabilityCredentials) {
 }
 
 [String]$ConfigurationPath = Join-Path $PSScriptRoot $ConfigurationFile
+[String]$MofConfigurationPath = (Get-LabHostDefault).ConfigurationPath
 
 # Using the localized data hack to load the configuration data in order
 # to be backwards compatible with PS v4
@@ -25,9 +31,8 @@ task CheckModuleVersions {
     $ConfigurationData.NonNodeData.Lability.DSCResource | ForEach-Object {
         $Spec = $_
         $Module = Get-Module -ListAvailable $_.Name
-
         if (-not @($Module.Version) -contains $Spec.RequiredVersion) {
-            Write-Host -ForegroundColor Red "Mismatch for $($Module.Name): $($Module.Version) <> $($Spec.RequiredVersion)"
+            Write-Host -ForegroundColor Red "Mismatch for $($Spec.Name): $($Spec.RequiredVersion) <> $($Module.Version)"
         }
     }
 }
@@ -40,11 +45,6 @@ task InstallRequiredModules {
 }
 
 task Build {
-    . $PSScriptRoot\LabConfig.ps1
-
-    LabConfig -ConfigurationData $ConfigurationPath `
-        -OutputPath (Get-LabHostDefault).ConfigurationPath `
-        -Credential $Global:LabilityCredentials -Verbose
     Start-LabConfiguration -ConfigurationData $ConfigurationPath `
         -Credential $Global:LabilityCredentials -Verbose
 
@@ -54,29 +54,44 @@ task Build {
                 $UserDataISOFile = Join-Path (Get-LabHostDefault).DifferencingVhdPath "$($_.NodeName).iso"
                 Write-UserData -NSIP $_.NSIP -Netmask $_.Netmask -DefaultGateway $_.Gateway `
                     -DestinationPath $PWD/userdata
-                Remove-Item $UserDataISOFile -Force
+                Remove-Item $UserDataISOFile -Force -ErrorAction SilentlyContinue
                 New-IsoFile -Media CDR -Source $PWD/userdata -Path $UserDataISOFile -Force
 
-                Set-VMDvdDrive -VMName "LAB-$($_.NodeName)" -Path $UserDataISOFile
+                Set-VMDvdDrive -VMName "$LabVmPrefix-$($_.NodeName)" -Path $UserDataISOFile
             } finally {
-                Remove-Item $PWD/userdata
+                Remove-Item $PWD/userdata -Force -ErrorAction SilentlyContinue
             }
         }
 
     Start-Lab -ConfigurationData $ConfigurationPath -Verbose
 }
 
-task ReBuild {
-    assert($VMName)
-
+task PrepareDscConfig {
     . $PSScriptRoot\LabConfig.ps1
 
     LabConfig -ConfigurationData $ConfigurationPath `
-        -OutputPath (Get-LabHostDefault).ConfigurationPath `
+        -OutputPath $MofConfigurationPath `
         -Credential $Global:LabilityCredentials -Verbose
+
+    Copy-Item -Path $PSScriptRoot\Data\sts.extlab.local.pfx -Destination (Get-LabHostDefault).ResourcePath
+}
+
+task ReBuild PrepareDscConfig, {
+    assert($VMName)
+
     Reset-LabVM -Name $VMName -ConfigurationData $ConfigurationPath `
-        -Path (Get-LabHostDefault).ConfigurationPath -NoSnapshot `
+        -Path $MofConfigurationPath -NoSnapshot `
         -Credential $global:LabilityCredentials -Verbose | Start-VM -Verbose
+}
+
+task ReApply PrepareDscConfig, {
+    assert($VMName)
+
+    Copy-Item (Join-Path $MofConfigurationPath "$VMName.mof") -Destination c:\ -ToSession (
+        New-PSSession -VMName $LabVMName -Credential $LabCredentials)
+    Invoke-Command -Credential $LabCredentials -VMName $LabVMName {
+        Start-DscConfiguration -Debug -Wait -Path "c:\" -Force
+    }
 }
 
 task Clean {

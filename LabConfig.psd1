@@ -67,8 +67,13 @@
         #>
         @{
             NodeName                = 'ADFS01'
-            IPAddress               = '10.0.0.32'
             Role                    = @('JOINED', 'ADFS')
+            Lability_Resource       = @('sts.extlab.local.pfx')
+
+            IPAddress               = '10.0.0.32'
+            AdfsCertThumbprint      = "1BC84A035D2264F1DB41A40B24691119B9616F79"
+            AdfsDisplayName         = "LAB ADFS"
+            AdfsFQDN                = "sts.extlab.local"
         }
         @{
             NodeName                = 'WEB01'
@@ -108,18 +113,25 @@
                 @{ Name = 'xDscDiagnostics' }
             )
             DSCResource = @(
-                @{ Name = 'xComputerManagement';          RequiredVersion = '1.8.0.0' }
-                @{ Name = 'xSmbShare';                    RequiredVersion = '2.0.0.0' }
-                @{ Name = 'xNetworking';                  RequiredVersion = '3.2.0.0' }
-                @{ Name = 'xActiveDirectory';             RequiredVersion = '2.9.0.0' }
-                @{ Name = 'xDnsServer';                   RequiredVersion = '1.5.0.0' }
-                @{ Name = 'xDhcpServer';                  RequiredVersion = '1.3.0.0' }
-                @{ Name = 'xPSDesiredStateConfiguration'; RequiredVersion = '6.0.0.0' }
-                @{ Name = 'xCertificate';                 RequiredVersion = '2.4.0.0' }
+                @{ Name = 'xComputerManagement';          RequiredVersion = '1.8.0.0'  }
+                @{ Name = 'xSmbShare';                    RequiredVersion = '2.0.0.0'  }
+                @{ Name = 'xNetworking';                  RequiredVersion = '3.2.0.0'  }
+                @{ Name = 'xActiveDirectory';             RequiredVersion = '2.9.0.0'  }
+                @{ Name = 'xDnsServer';                   RequiredVersion = '1.7.0.0'  }
+                @{ Name = 'xDhcpServer';                  RequiredVersion = '1.3.0.0'  }
+                @{ Name = 'xPSDesiredStateConfiguration'; RequiredVersion = '6.0.0.0'  }
+                @{ Name = 'xCertificate';                 RequiredVersion = '2.4.0.0'  }
+                @{ Name = 'xWebAdministration';           RequiredVersion = '1.17.0.0' }
                 ## The 'GitHub# provider can download modules directly from a GitHub repository, for example:
                 ## @{ Name = 'Lability'; Provider = 'GitHub'; Owner = 'VirtualEngine'; Repository = 'Lability'; Branch = 'dev'; }
             );
             Resource = @(
+                @{
+                    Id = 'sts.extlab.local.pfx'
+                    Filename = 'sts.extlab.local.pfx'
+                    Uri = 'http://dummy'
+                    DestinationPath = '\Downloads'
+                }
                 @{
                     Id = 'jdk-8u112-windows-x64.exe'
                     Filename = 'jdk-8u112-windows-x64.exe'

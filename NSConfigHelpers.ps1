@@ -15,13 +15,13 @@ function Import-Certificate {
         [String]$CertificateName,
         [String]$LocalFilename,
         [String]$Filename,
-        [String]$Password  
+        [String]$Password
     )
     if (Get-NSSystemFile -FileLocation '/nsconfig/ssl' | Where Filename -eq $Filename) {
         Write-Verbose "  ---- Certificate '$CertificateName' is already present."
-    } else {    
+    } else {
         Write-Verbose "  ---- Uploading certificate '$CertificateName'..."
-        Add-NSSystemFile -Path $LocalFilename -FileLocation '/nsconfig/ssl' -Filename $Filename    
+        Add-NSSystemFile -Path $LocalFilename -FileLocation '/nsconfig/ssl' -Filename $Filename
     }
     if (-not (Get-NSSSLCertificate -Name $CertificateName -ErrorAction SilentlyContinue)) {
         Write-Verbose "  ---- Adding keypair... "
@@ -37,30 +37,59 @@ function Import-Certificate {
 function New-ReverseProxy {
     Param(
         [String]$IPAddress,
-        [String]$ExternalFQDN,
-        [String]$InternalFQDN,
+        [Parameter(Mandatory)] [String]$ExternalFQDN,
+        [Parameter(Mandatory)] [String]$InternalFQDN,
+        [String]$InternalIPAddress,
+        [String]$InternalProtocol = 'HTTP',
         [String]$CertificateName = $ExternalFQDN,
         [String]$AuthenticationHost,
         [String]$AuthenticationVServerName,
         [String]$ContentSwitchingName,
         [String]$Priority,
-        [String]$Type = ''              
+        [String]$Type = ''
     )
+    if ($InternalFQDN) {
+        $InternalId = $InternalFQDN
+    } else {
+        $InternalId = $InternalIPAddress
+    }
+    if ($InternalProtocol -eq 'SSL') {
+        $Port = 443
+    } else {
+        $Port = 80
+    }
+
     $VServerName                = "vsrv-$ExternalFQDN"
-    $ServerName                 = "srv-$InternalFQDN"
+    $ServerName                 = "srv-$InternalId"
+    $ServiceGroupName           = "svg-$ExternalFQDN"
     $ContentSwitchingPolicyName = "cs-pol-$ExternalFQDN"
-    
-    Write-Verbose "  -- Creating reverse proxy $ExternalFQDN -> $InternalFQDN..."
+
+    Write-Verbose "  -- Creating reverse proxy $ExternalFQDN -> $InternalId..."
     if (Get-NSLBVirtualServer -Name $VServerName -ErrorAction SilentlyContinue) {
         Write-Verbose "  -- Already created: skipping."
         return
     }
 
     Write-Verbose "  ---- Creating LB Servers '$ServerName'..."
-    New-NSLBServer -Name $ServerName -Domain $InternalFQDN
+    if ($InternalIPAddress) {
+        New-NSLBServer -Name $ServerName -IPAddress $InternalIPAddress
+    } else {
+        New-NSLBServer -Name $ServerName -Domain $InternalFQDN
+    }
     Enable-NSLBServer -Name $ServerName -Force
-    New-NSLBServiceGroup -Name svg-$ExternalFQDN -Protocol HTTP
-    New-NSLBServiceGroupMember -Name svg-$ExternalFQDN -ServerName $ServerName
+    New-NSLBServiceGroup -Name $ServiceGroupName -Protocol $InternalProtocol
+    if ($InternalProtocol -eq "SSL") {
+        # "sslservicegroup":{"servicegroupname":"svg-sts.extlab.local","sessreuse":"ENABLED","sesstimeout":"300","serverauth":"DISABLED",
+        # "commonname":"sts.extlab.local","snienable":"ENABLED","sendclosenotify":"YES","ssl3":"DISABLED",
+        # "tls1":"ENABLED","tls11":"ENABLED","tls12":"ENABLED"}
+        Write-Verbose "  ------ Activating internal SNI..."
+        Invoke-Nitro -Type sslservicegroup -Method PUT -Payload @{
+                servicegroupname   = $ServiceGroupName
+                commonname         = $InternalFQDN
+                snienable          = "ENABLED"
+            } -Force
+    }
+    New-NSLBServiceGroupMember -Name svg-$ExternalFQDN -ServerName $ServerName -Port $Port
 
     Write-Verbose "  ---- Creating LB VServer '$VServerName'..."
     New-NSLBVirtualServer -Name $VServerName -NonAddressable -ServiceType SSL
@@ -75,16 +104,17 @@ function New-ReverseProxy {
 
     Write-Verbose "  ---- Binding certificate '$CertificateName' to $ContentSwitchingName..."
     Add-NSLBSSLVirtualServerCertificateBinding -VirtualServerName $ContentSwitchingName -Certificate $CertificateName -SniCert $True
-    
-    Write-Verbose "  ---- Adding policies..."
-    New-NSRewriteAction -Name "act-proxy-host-$InternalFQDN" -Type Replace -Target 'HTTP.REQ.HOSTNAME' -Expression "`"$InternalFQDN`""    
-    New-NSRewritePolicy -Name "pol-proxy-host-$InternalFQDN" -ActionName "act-proxy-host-$InternalFQDN" -Rule "true"
-    Add-NSLBVirtualServerRewritePolicyBinding -VirtualServerName $VServerName -PolicyName "pol-proxy-host-$InternalFQDN" `
-        -BindPoint Request -Priority 100
 
+    if ($InternalFQDN) {
+        Write-Verbose "  ---- Adding policies rewrite policy: $ExternalFQDN -> $InternalFQDN ..."
+        New-NSRewriteAction -Name "act-proxy-host-$InternalFQDN" -Type Replace -Target 'HTTP.REQ.HOSTNAME' -Expression "`"$InternalFQDN`""
+        New-NSRewritePolicy -Name "pol-proxy-host-$InternalFQDN" -ActionName "act-proxy-host-$InternalFQDN" -Rule "true"
+        Add-NSLBVirtualServerRewritePolicyBinding -VirtualServerName $VServerName -PolicyName "pol-proxy-host-$InternalFQDN" `
+            -BindPoint Request -Priority 100
+    }
 
     if (-not (Invoke-Nitro -Method GET -Type cspolicy -Resource $ContentSwitchingPolicyName -ErrorAction SilentlyContinue)) {
-        Write-Verbose "  ---- Creating content switching policy for '$ExternalFQDN'... "    
+        Write-Verbose "  ---- Creating content switching policy for '$ExternalFQDN'... "
         Invoke-Nitro -Method POST -Type cspolicy -Payload @{
                 # "cspolicy":{"policyname":"cs-pol-toto","rule":"HTTP.REQ.HOSTNAME.EQ(\"www.extlab.local\")"}
                 policyname  = $ContentSwitchingPolicyName
@@ -93,7 +123,7 @@ function New-ReverseProxy {
     }
 
     if (-not (Invoke-Nitro -Method GET -Type csvserver_cspolicy_binding -ErrorAction SilentlyContinue)) {
-        Write-Verbose "  ---- Creating content switching binding '$ContentSwitchingName' <- '$VServerName' ($Priority)... "    
+        Write-Verbose "  ---- Creating content switching binding '$ContentSwitchingName' <- '$VServerName' ($Priority)... "
         Invoke-Nitro -Method POST -Type csvserver_cspolicy_binding -Payload @{
                 # "csvserver_cspolicy_binding":{"policyname":"cs-pol-toto","priority":"100","gotopriorityexpression":"END","targetlbvserver":"vsrv-www.extlab.local","name":"cs-lab",
                 #"bindpoint":"REQUEST"}}
@@ -104,14 +134,16 @@ function New-ReverseProxy {
             } -Action add -Force
     }
 
-    Write-Verbose "  ---- Setting up authentication for $ExternalFQDN..."
-    Invoke-Nitro -Type lbvserver -Method PUT -Payload @{ 
-            name               = $VServerName
-            authenticationhost = $AuthenticationHost
-            authnvsname        = $AuthenticationVServerName
-            authentication     = "ON"
-            authn401           = "OFF"
-        } -Force
+    if ($AuthenticationHost) {
+        Write-Verbose "  ---- Setting up authentication for $ExternalFQDN..."
+        Invoke-Nitro -Type lbvserver -Method PUT -Payload @{
+                name               = $VServerName
+                authenticationhost = $AuthenticationHost
+                authnvsname        = $AuthenticationVServerName
+                authentication     = "ON"
+                authn401           = "OFF"
+            } -Force -Session $Session   
+    }
 }
 
 function New-AAAConfig {
@@ -122,7 +154,7 @@ function New-AAAConfig {
         [String]$Port             = "443",
         [String]$SAMLCertificate  = 'adfs_token_signing',
         [String]$DomainName       = 'extlab.local',
-        [String]$ADFSFQDN         = "adfs.$DomainName"
+        [String]$ADFSFQDN         = "sts.$DomainName"
     )
     $SAMLPolicyName = "pol-saml-$ADFSFQDN"
     $SAMLActionName = "act-saml-$ADFSFQDN"
@@ -130,24 +162,24 @@ function New-AAAConfig {
 
     if (-not (Invoke-Nitro -Method GET -Type authenticationvserver -Resource $Name -ErrorAction SilentlyContinue)) {
         Write-Verbose "  ---- Setting up authentication server..."
-        Invoke-Nitro -Type authenticationvserver -Method POST -Payload @{ 
+        Invoke-Nitro -Type authenticationvserver -Method POST -Payload @{
                 name                 = $Name
                # ipv46                = $IPAddress
                # port                 = $Port
                 servicetype          = "SSL"
                 authenticationdomain = $DomainName
                 authentication       = "ON"
-                state                = "ENABLED"        
+                state                = "ENABLED"
             } -Action Add -Force
     }
 
     if (-not (Invoke-Nitro -Method GET -Type authenticationsamlaction -Resource $SAMLActionName -ErrorAction SilentlyContinue)) {
-        Write-Verbose "  ---- Creating SAML authentication action"
+        Write-Verbose "  ---- Creating SAML authentication action..."
         Invoke-Nitro -Method POST -Type authenticationsamlaction  -Payload @{
                 name                           = $SAMLActionName
                 samlidpcertname                = $SAMLCertificate
                 samlredirecturl                = "https://$ADFSFQDN/adfs/ls"
-                samlsigningcertname            = $CertificateName
+                #samlsigningcertname            = $CertificateName
                 samlissuername                 = "Netscaler"
                 samlrejectunsignedassertion    = "ON"
                 samlbinding                    = "POST"
@@ -159,7 +191,7 @@ function New-AAAConfig {
                 signaturealg                   = "RSA-SHA256"
                 digestmethod                   = "SHA256"
                 sendthumbprint                 = "OFF"
-                enforceusername                = "ON"   
+                enforceusername                = "ON"
             } -Action add -Force
     }
     if (-not (Invoke-Nitro -Method GET -Type authenticationsamlpolicy -Resource $SAMLPolicyName -ErrorAction SilentlyContinue)) {
@@ -171,7 +203,7 @@ function New-AAAConfig {
             } -Action add -Force
     }
    if (-not ((Invoke-Nitro -Method GET -Type authenticationvserver_authenticationsamlpolicy_binding -Resource $Name).psobject.Properties.Name -contains 'authenticationvserver_authenticationsamlpolicy_binding')) {
-        Write-Verbose "  ---- Binding authentication policy... "    
+        Write-Verbose "  ---- Binding authentication policy... "
         Invoke-Nitro -Method POST -Type authenticationvserver_authenticationsamlpolicy_binding -Payload @{
                 policy    = $SAMLPolicyName
                 name      = $Name
@@ -180,7 +212,7 @@ function New-AAAConfig {
             } -Action add -Force
     }
     if (-not (Get-NSLBSSLVirtualServerCertificateBinding -VirtualServerName $Name -ErrorAction SilentlyContinue)) {
-        Write-Verbose "  ---- Binding certificat to AAA server... "    
-        Add-NSLBSSLVirtualServerCertificateBinding -VirtualServerName $Name -Certificate $CertificateName   
+        Write-Verbose "  ---- Binding certificat to AAA server... "
+        Add-NSLBSSLVirtualServerCertificateBinding -VirtualServerName $Name -Certificate $CertificateName
     }
 }

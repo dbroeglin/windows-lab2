@@ -132,4 +132,13 @@ On Windows Server 2016 or Windows 10:
             -Password $password -Force
     }
 
-    
+Extracting the ADFS certificate:
+
+    $TokenSigningCertificatePath = "$PWD\Data\adfs_token_signing.cer"
+    $Cert = invoke-command -VMName LAB-ADFS01 -Credential $global:LabCredentials { Get-AdfsCertificate -CertificateType Token-Signing }
+    $CertBytes=$Cert[0].Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+    [System.IO.File]::WriteAllBytes($TokenSigningCertificatePath, $certBytes)
+
+Note: if you are regenerating it, don't forget to remove it from NetScaler so that it can be re-imported when the configuration is reapplied:
+
+     Get-NSSystemFile -FileLocation /nsconfig/ssl | Where filename -like "adfs_token*" | Remove-NSSystemFile -FileLocation /nsconfig/ssl

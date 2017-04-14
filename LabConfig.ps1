@@ -23,13 +23,14 @@ Configuration LabConfig {
 
     Import-DscResource -ModuleName PSDesiredStateConfiguration
 
-    Import-DscResource -ModuleName xComputerManagement -ModuleVersion 1.8.0.0
-    Import-DscResource -ModuleName xSmbShare -ModuleVersion 2.0.0.0
-    Import-DscResource -ModuleName xNetworking -ModuleVersion 3.2.0.0
-    Import-DscResource -ModuleName xActiveDirectory -ModuleVersion 2.9.0.0
-    Import-DscResource -ModuleName xDnsServer -ModuleVersion 1.7.0.0
-    Import-DscResource -ModuleName xDhcpServer -ModuleVersion 1.3.0.0
+    Import-DscResource -ModuleName xComputerManagement          -ModuleVersion 1.8.0.0
+    Import-DscResource -ModuleName xSmbShare                    -ModuleVersion 2.0.0.0
+    Import-DscResource -ModuleName xNetworking                  -ModuleVersion 3.2.0.0
+    Import-DscResource -ModuleName xActiveDirectory             -ModuleVersion 2.9.0.0
+    Import-DscResource -ModuleName xDnsServer                   -ModuleVersion 1.7.0.0
+    Import-DscResource -ModuleName xDhcpServer                  -ModuleVersion 1.3.0.0
     Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 6.0.0.0
+    Import-DscResource -ModuleName xWebAdministration           -ModuleVersion 1.17.0.0
 
     node $AllNodes.Where({$true}).NodeName {
         LocalConfigurationManager {
@@ -186,9 +187,10 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq WEB01).IPAddress
         }
 
-        xDnsServerADZone extlab.local{
+        xDnsServerADZone extlab.local {
             Name             = 'extlab.local'
-            ReplicationScope = 'Forest'                     
+            ReplicationScope = 'Forest'
+            Ensure           = 'Present'              
         }
 
         xDNSRecord aaa.extlab.local {
@@ -196,6 +198,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
+            DependsOn = @("[xDnsServerADZone]extlab.local")            
         }
         
         xDNSRecord www.extlab.local {
@@ -203,6 +206,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
+            DependsOn = @("[xDnsServerADZone]extlab.local")            
         }
 
         xDNSRecord sts.extlab.local {
@@ -210,6 +214,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
+            DependsOn = @("[xDnsServerADZone]extlab.local")            
         }
     } #end nodes DC
 
@@ -244,7 +249,19 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
     } #end nodes JAHIA
 
     node $AllNodes.Where({$_.Role -contains 'WEB'}).NodeName {
-        
+        WindowsFeature IIS {
+            Ensure          = 'Present'
+            Name            = 'Web-Server'
+        }
+
+        File WebContent
+        {
+            Ensure          = 'Present'
+            DestinationPath = 'C:\inetpub\wwwroot\index.html'
+            Contents        = 'Hello World!'
+            Type            = 'File'
+        } 
+
     } #end nodes WEB
 
     node $AllNodes.Where({$_.Role -contains 'ADFS'}).NodeName {
@@ -260,8 +277,6 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Ensure = "Present"
         }
 
-        # sts certificate 1BC84A035D2264F1DB41A40B24691119B9616F79
-
         Script ADFSFarm
         {
             GetScript = {
@@ -269,7 +284,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             }
             SetScript = {
                 ### If ADFS Farm shoud be present, then go ahead and install it.
-                if ($this.Ensure -eq [Ensure]::Present) {
+                if (!$this.Ensure -or $this.Ensure -eq 'Present') {
                     try{
                         $AdfsProperties = Get-AdfsProperties -ErrorAction stop;
                     }
@@ -285,18 +300,20 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
                         Set-AdfsProperties @AdfsProperties;
                     } else {
                         Write-Verbose -Message 'Installing Active Directory Federation Services (ADFS) farm.';
+                        Import-PfxCertificate  -CertStoreLocation Cert:\LocalMachine\My -FilePath c:\Downloads\sts.extlab.local.pfx -Password (
+                            ConvertTo-SecureString -AsPlainText -Force "Passw0rd") 
                         $AdfsFarm = @{
-                            ServiceAccountCredential      = $AdfsSvcCredential
-                            InstallCredential             = $Credential
-                            CertificateThumbprint         = $AdfsCertThumbprint
-                            FederactionServiceDisplayName = $AdfsDisplayName
-                            FederationServiceName         = $AdfsFQDN
+                            ServiceAccountCredential      = [PSCredential]::new("LAB\svc_adfs", (ConvertTo-SecureString -AsPlainText -Force "Passw1rd"))
+                            Credential                    = [PSCredential]::new("LAB\Administrator", (ConvertTo-SecureString -AsPlainText -Force "Passw0rd"))
+                            CertificateThumbprint         = $using:Node.AdfsCertThumbprint
+                            FederationServiceDisplayName  = $using:Node.AdfsDisplayName
+                            FederationServiceName         = $using:Node.AdfsFQDN
                         }
-                        InstallADFSFarm @AdfsFarm;
+                        Install-ADFSFarm @AdfsFarm;
                     }
                 }
 
-                if ($this.Ensure -eq [Ensure]::Absent) {
+                if ($this.Ensure -eq 'Absent') {
                     ### From the help for Remove-AdfsFarmNode: The Remove-AdfsFarmNode cmdlet is deprecated. Instead, use the Uninstall-WindowsFeature cmdlet.
                     Uninstall-WindowsFeature -Name ADFS-Federation;
                 }
