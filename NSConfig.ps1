@@ -11,6 +11,10 @@ Param(
 
 $ContentSwitchingName = "cs-external"
 
+$NameServers = @(
+    '10.0.0.1'
+)
+
 $ReverseProxies = @(
     @{
         IPAddress                   = '10.0.0.100'
@@ -60,31 +64,29 @@ Write-Verbose "Applying Netscaler configuration..."
 Set-NSTimeZone -TimeZone $Timezone -Session $Session -Force
 Set-NSHostname -Hostname $Hostname -Session $Session -Force
 
+Disable-NSMode -Name l3 -Force
+
 Write-Verbose "  -- Setting up features..."
 Enable-NSFeature -Session $Session -Force -Name "aaa", "lb", "rewrite", "ssl", "sslvpn", "cs"
 
 Write-Verbose "  -- Setting up DNS..."
-New-NSLBServer -Name srv-dns1 -IPAddress 8.8.8.8
-#New-NSLBServer -Name srv-dns2 -IPAddress 8.8.4.4
-Invoke-Nitro -Method POST -Type service -Payload @{
-        # "service":{"name":"svc-dns","servername":"srv-dns1","servicetype":"DNS","port":"53","td":"","customserverid":"None","state":"ENABLED","healthmonitor":"YES","appflowlog":"ENABLED","comment":""}
-        name        = 'svc-dns1'
-        servername  = 'srv-dns1'
-        servicetype = 'DNS'
-        port        = '53'
-    } -Action add -Force
-<#
-Invoke-Nitro -Method POST -Type service -Payload @{
-        # "service":{"name":"svc-dns","servername":"srv-dns1","servicetype":"DNS","port":"53","td":"","customserverid":"None","state":"ENABLED","healthmonitor":"YES","appflowlog":"ENABLED","comment":""}
-        name        = 'svc-dns2'
-        servername  = 'srv-dns2'
-        servicetype = 'DNS'
-        port        = '53'
-    } -Action add -Force
-#>
+
 New-NSLBVirtualServer -Name vsrv-dns -ServiceType DNS -NonAddressable
-Add-NSLBVirtualServerBinding -ServiceName svc-dns1 -VirtualServerName vsrv-dns
-#Add-NSLBVirtualServerBinding -ServiceName svc-dns2 -VirtualServerName vsrv-dns
+$NameServers | ForEach-Object -Begin { $i = 0 } -Process {
+    $i++
+    $ServerName  = "srv-dns$i"
+    $ServiceName = "svc-dns$i"
+
+    New-NSLBServer -Name $ServerName -IPAddress $_
+    Invoke-Nitro -Method POST -Type service -Payload @{
+            # "service":{"name":"svc-dns","servername":"srv-dns1","servicetype":"DNS","port":"53","td":"","customserverid":"None","state":"ENABLED","healthmonitor":"YES","appflowlog":"ENABLED","comment":""}
+            name        = $ServiceName
+            servername  = $ServerName
+            servicetype = 'DNS'
+            port        = '53'
+        } -Action add -Force
+    Add-NSLBVirtualServerBinding -ServiceName $ServiceName -VirtualServerName vsrv-dns
+}
 
 Invoke-Nitro -Method POST -Type dnsnameserver -Payload @{
     # "dnsnameserver":{"type":"UDP","state":"ENABLED","dnsvservername":"vsrv-dns"}
