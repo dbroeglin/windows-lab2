@@ -27,7 +27,7 @@ Configuration LabConfig {
     Import-DscResource -ModuleName xSmbShare -ModuleVersion 2.0.0.0
     Import-DscResource -ModuleName xNetworking -ModuleVersion 3.2.0.0
     Import-DscResource -ModuleName xActiveDirectory -ModuleVersion 2.9.0.0
-    Import-DscResource -ModuleName xDnsServer -ModuleVersion 1.5.0.0
+    Import-DscResource -ModuleName xDnsServer -ModuleVersion 1.7.0.0
     Import-DscResource -ModuleName xDhcpServer -ModuleVersion 1.3.0.0
     Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 6.0.0.0
 
@@ -179,6 +179,38 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             DependsOn = '[xADUser]User1';
         }
 
+        xDNSRecord www.lab.local {
+            Name     = 'www'
+            Type     =  'ARecord'
+            Zone     = 'lab.local'
+            Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq WEB01).IPAddress
+        }
+
+        xDnsServerADZone extlab.local{
+            Name             = 'extlab.local'
+            ReplicationScope = 'Forest'                     
+        }
+
+        xDNSRecord aaa.extlab.local {
+            Name     = 'aaa'
+            Type     =  'ARecord'
+            Zone     = 'extlab.local'
+            Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
+        }
+        
+        xDNSRecord www.extlab.local {
+            Name     = 'www'
+            Type     =  'ARecord'
+            Zone     = 'extlab.local'
+            Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
+        }
+
+        xDNSRecord sts.extlab.local {
+            Name     = 'sts'
+            Type     =  'ARecord'
+            Zone     = 'extlab.local'
+            Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
+        }
     } #end nodes DC
 
     node $AllNodes.Where({$_.Role -contains 'JAHIA'}).NodeName {
@@ -213,7 +245,8 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
 
     node $AllNodes.Where({$_.Role -contains 'WEB'}).NodeName {
         
-    } #end nodes JAHIA
+    } #end nodes WEB
+
     node $AllNodes.Where({$_.Role -contains 'ADFS'}).NodeName {
         WindowsFeature ADFS
         {
