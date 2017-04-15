@@ -122,7 +122,7 @@ On Windows Server 2016 or Windows 10:
     dir Cert:\LocalMachine\My\ | Where-Object Subject -like '*extlab*' | Remove-Item
     New-SelfSignedCertificate -certstorelocation cert:\localmachine\my `
             -dnsname sts.extlab.local -KeySpec KeyExchange
-    "aaa.extlab.local", "www.extlab.local" | ForEach {
+    "aaa.extlab.local", "www.extlab.local", "wwa.extlab.local", "wwb.extlab.local" | ForEach {
         $Fqdn = $_
         New-SelfSignedCertificate -certstorelocation cert:\localmachine\my `
             -dnsname $Fqdn
@@ -162,7 +162,9 @@ Note: if you are regenerating it, don't forget to remove it from NetScaler so th
 
     Add-ADFSRelyingPartyTrust -Name Netscaler `
         -Identifier Netscaler `
-        -SamlEndpoint (New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://$Fqdn/cgi/samlauth") `
+        -SamlEndpoint (
+            New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://$Fqdn/cgi/samlauth"
+        ) `
         -RequestSigningCertificate (Get-ChildItem  -Path Cert:\LocalMachine\My  | ? { $_.Subject  -Match "$CertificateSubject"})
 
     $rules = @'
@@ -182,3 +184,10 @@ Note: if you are regenerating it, don't forget to remove it from NetScaler so th
     Set-ADFSRelyingPartyTrust -TargetName Netscaler -IssuanceAuthorizationRules $RuleSet.ClaimRulesString
 
     Set-ADFSRelyingPartyTrust -TargetName Netscaler -NotBeforeSkew 2
+
+Changing endpoints:
+
+    Set-ADFSRelyingPartyTrust -Name Netscaler -SamlEndpoint @(
+            New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://www.extlab.local/cgi/samlauth"
+            New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://wwa.extlab.local/cgi/samlauth" -Index 1   
+        )
