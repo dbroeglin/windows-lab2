@@ -79,6 +79,7 @@
             NodeName                = 'WEB01'
             IPAddress               = '10.0.0.33'
             Role                    = @('JOINED', 'WEB')
+            Lability_Resource       = @('wwa.extlab.local.pfx')
         }
     );
     NonNodeData = @{
@@ -133,6 +134,12 @@
                     DestinationPath = '\Downloads'
                 }
                 @{
+                    Id = 'wwa.extlab.local.pfx'
+                    Filename = 'wwa.extlab.local.pfx'
+                    Uri = 'http://dummy'
+                    DestinationPath = '\Downloads'
+                }
+               @{
                     Id = 'jdk-8u112-windows-x64.exe'
                     Filename = 'jdk-8u112-windows-x64.exe'
                     Uri = 'http://oracle_would_not_work_see_README'

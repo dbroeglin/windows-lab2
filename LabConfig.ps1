@@ -167,6 +167,34 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             DependsOn = '[xADDomain]ADDomain';
         }
 
+        xADUser alice {
+            DomainName  = $node.DomainName
+            UserName    = 'alice'
+            Description = 'Alice'
+            Password    = $Credential
+            Ensure      = 'Present'
+            DependsOn   = '[xADDomain]ADDomain'
+        }
+
+        xADUser bob {
+            DomainName  = $node.DomainName
+            UserName    = 'bob'
+            Description = 'Bob'
+            Password    = $Credential
+            Ensure      = 'Present'
+            DependsOn   = '[xADDomain]ADDomain'
+        }
+
+        xADUser ns_svc {
+            DomainName           = $node.DomainName
+            UserName             = 'ns_svc'
+            Description          = 'Netscaler Service Account (KCD)'
+            Password             = $Credential
+            PasswordNeverExpires = $True
+            Ensure               = 'Present'
+            DependsOn            = '[xADDomain]ADDomain'            
+        }
+
         xADGroup DomainAdmins {
             GroupName = 'Domain Admins';
             MembersToInclude = 'User1';
@@ -182,6 +210,20 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
 
         xDNSRecord www.lab.local {
             Name     = 'www'
+            Type     =  'ARecord'
+            Zone     = 'lab.local'
+            Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq WEB01).IPAddress
+        }
+
+        xDNSRecord wwa.lab.local {
+            Name     = 'wwa'
+            Type     =  'ARecord'
+            Zone     = 'lab.local'
+            Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq WEB01).IPAddress
+        }
+
+        xDNSRecord wwb.lab.local {
+            Name     = 'wwb'
             Type     =  'ARecord'
             Zone     = 'lab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq WEB01).IPAddress
@@ -203,6 +245,22 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
         
         xDNSRecord www.extlab.local {
             Name     = 'www'
+            Type     =  'ARecord'
+            Zone     = 'extlab.local'
+            Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
+            DependsOn = @("[xDnsServerADZone]extlab.local")            
+        }
+
+        xDNSRecord wwa.extlab.local {
+            Name     = 'wwa'
+            Type     =  'ARecord'
+            Zone     = 'extlab.local'
+            Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
+            DependsOn = @("[xDnsServerADZone]extlab.local")            
+        }
+
+        xDNSRecord wwb.extlab.local {
+            Name     = 'wwb'
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
@@ -261,6 +319,41 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Contents        = 'Hello World!'
             Type            = 'File'
         } 
+
+        File wwaroot
+        {
+            Ensure          = 'Present'
+            DestinationPath = 'C:\inetpub\wwaroot'
+            Type            = 'Directory'
+        } 
+
+        File wwa_index
+        {
+            Ensure          = 'Present'
+            DestinationPath = 'C:\inetpub\wwaroot\index.html'
+            Contents        = 'WWA: Hello World!'
+            Type            = 'File'
+            DependsOn       = @("[File]wwaroot")
+        } 
+
+        xWebsite wwa.lab.local {
+            Ensure          = 'Present'
+            Name            = 'wwa.lab.local'
+            BindingInfo = MSFT_xWebBindingInformation {
+                Protocol = "http"
+                Port     = 80
+                Hostname = "wwa.lab.local"
+            }
+            AuthenticationInfo = MSFT_xWebAuthenticationInformation {
+                Anonymous = $False
+                Basic     = $False
+                Digest    = $False
+                Windows   = $True
+            }
+            State           = 'Started'
+            PhysicalPath    = 'c:\inetpub\wwaroot'
+            DependsOn       = '[File]wwa_index'
+        }
 
     } #end nodes WEB
 
