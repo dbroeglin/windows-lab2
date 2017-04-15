@@ -45,10 +45,7 @@ $ReverseProxies = @(
 
 $AuthenticationServers = @(
     @{
-        Name             = "aaa-server"
-        CertificateName  = "aaa.extlab.local"
-        IPAddress        = "10.0.0.110"
-        Port             = "443"
+        FQDN             = "aaa.extlab.local"
         SAMLCertificate  = 'adfs_token_signing'
         DomainName       = 'extlab.local'
         ADFSFQDN         = 'sts.extlab.local'        

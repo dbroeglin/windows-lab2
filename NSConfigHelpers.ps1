@@ -148,14 +148,13 @@ function New-ReverseProxy {
 
 function New-AAAConfig {
     Param(
-        [String]$Name             = "aaa-server",
-        [String]$CertificateName  = "aaa.extlab.local",
-        [String]$IPAddress        = "172.16.124.13",
-        [String]$Port             = "443",
-        [String]$SAMLCertificate  = 'adfs_token_signing',
+        [Parameter(Mandatory)] [String]$FQDN,
+        [Parameter(Mandatory)] [String]$CertificateName = $FQDN,
+        [Parameter(Mandatory)] [String]$SAMLCertificate  = 'adfs_token_signing',
         [String]$DomainName       = 'extlab.local',
         [String]$ADFSFQDN         = "sts.$DomainName"
     )
+    $Name           = "aaa-vsrv-$FQDN"
     $SAMLPolicyName = "pol-saml-$ADFSFQDN"
     $SAMLActionName = "act-saml-$ADFSFQDN"
     Write-Verbose "  -- Setting up AAA..."
