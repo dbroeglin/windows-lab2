@@ -44,7 +44,7 @@ task InstallRequiredModules {
     }
 }
 
-task Build {
+task Build PrepareDscConfig, {
     Start-LabConfiguration -ConfigurationData $ConfigurationPath `
         -Credential $Global:LabilityCredentials -Verbose
 

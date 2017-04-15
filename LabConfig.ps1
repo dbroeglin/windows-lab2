@@ -309,7 +309,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
                             FederationServiceDisplayName  = $using:Node.AdfsDisplayName
                             FederationServiceName         = $using:Node.AdfsFQDN
                         }
-                        Install-ADFSFarm @AdfsFarm;
+                        Install-ADFSFarm @AdfsFarm -OverwriteConfiguration
                     }
                 }
 
