@@ -41,7 +41,25 @@ $ReverseProxies = @(
         AuthenticationVServerName   = $AAAVServer
         ContentSwitchingName        = $ContentSwitchingName
         Priority                    = 101
-    }    
+    }
+    @{
+        IPAddress                   = '10.0.0.100'
+        ExternalFQDN                = 'wwa.extlab.local' 
+        InternalFQDN                = 'wwa.lab.local'
+        Certificate                 = 'wwa.extlab.local'
+        AuthenticationHost          = 'aaa.extlab.local'
+        AuthenticationVServerName   = $AAAVServer
+        ContentSwitchingName        = $ContentSwitchingName
+        Priority                    = 102
+    } 
+    @{
+        IPAddress                   = '10.0.0.100'
+        ExternalFQDN                = 'wwb.extlab.local' 
+        InternalFQDN                = 'wwb.lab.local'
+        Certificate                 = 'wwb.extlab.local'
+        ContentSwitchingName        = $ContentSwitchingName
+        Priority                    = 103
+    }        
 )
 
 $AuthenticationServers = @(
@@ -113,7 +131,7 @@ Invoke-Nitro -Method POST -Type dnsnameserver -Payload @{
 
 
 Write-Verbose "  -- Uploading certificates..."
-"aaa.extlab.local", "sts.extlab.local", "www.extlab.local" | ForEach-Object {
+"aaa.extlab.local", "sts.extlab.local", "www.extlab.local", "wwa.extlab.local", "wwb.extlab.local" | ForEach-Object {
     Import-Certificate -CertificateName $_ -LocalFilename ".\Data\$_.pfx" -Filename "$_.pfx" -Password Passw0rd -Session $Session
 }
 
@@ -187,6 +205,30 @@ if (-not (Invoke-Nitro -Method GET -Type csvserver_cspolicy_binding -ErrorAction
             priority        = 99
         } -Action add -Force -Session $Session
 }
+
+
+Write-Verbose "  -- Setting up KCD for 'www.extlab.local'..."
+Write-Verbose "  ---- Setting up KCD account..."
+New-NSKCDAccount -Name ns_svc -Realm "lab.local" -Credential ([PSCredential]::new("ns_svc", (ConvertTo-SecureString "Passw0rd" -Force -AsPlainText)))
+
+Write-Verbose "  ---- Setting up KCD traffic profile..."
+Invoke-Nitro -Type tmtrafficaction -Method POST -Payload @{
+        name             = "prf-sso-kcd"
+        initiatelogout   = "OFF"
+        persistentcookie = "OFF"
+        apptimeout       = "5"
+        sso              = "ON"
+        kcdaccount       = "ns_svc"
+    } -Action Add -Force
+
+Write-Verbose "  ---- Setting up KCD traffic policy..."
+Invoke-Nitro -Type tmtrafficpolicy -Method POST -Payload @{
+        name   = "pol-sso-kcd"
+        action = "prf-sso-kcd"
+        rule   = "true"
+    } -Action Add -Force
+Add-NSLBVirtualServerTrafficPolicyBinding -VirtualServerName "vsrv-www.extlab.local" -PolicyName "pol-sso-kcd" -Priority 100
+
 
 Write-Verbose "Saving configuration..."
 Save-NSConfig -Session $Session
