@@ -149,8 +149,8 @@ function New-ReverseProxy {
 function New-AAAConfig {
     Param(
         [Parameter(Mandatory)] [String]$FQDN,
-        [Parameter(Mandatory)] [String]$CertificateName = $FQDN,
-        [Parameter(Mandatory)] [String]$SAMLCertificate  = 'adfs_token_signing',
+        [String]$CertificateName = $FQDN,
+        [Parameter(Mandatory)] [String]$SAMLCertificate,
         [String]$DomainName       = 'extlab.local',
         [String]$ADFSFQDN         = "sts.$DomainName"
     )
@@ -160,7 +160,7 @@ function New-AAAConfig {
     Write-Verbose "  -- Setting up AAA..."
 
     if (-not (Invoke-Nitro -Method GET -Type authenticationvserver -Resource $Name -ErrorAction SilentlyContinue)) {
-        Write-Verbose "  ---- Setting up authentication server..."
+        Write-Verbose "  ---- Setting up authentication server '$Name'..."
         Invoke-Nitro -Type authenticationvserver -Method POST -Payload @{
                 name                 = $Name
                # ipv46                = $IPAddress

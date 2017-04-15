@@ -15,6 +15,7 @@ Param(
 #region Configuration
 
 $ContentSwitchingName = "cs-external"
+$AAAVServer           = "aaa-vsrv-aaa.extlab.local"
 
 $NameServers = @(
     '10.0.0.1'
@@ -37,7 +38,7 @@ $ReverseProxies = @(
         InternalFQDN                = 'www.lab.local'
         Certificate                 = 'www.extlab.local'
         AuthenticationHost          = 'aaa.extlab.local'
-        AuthenticationVServerName   = 'aaa-server'
+        AuthenticationVServerName   = $AAAVServer
         ContentSwitchingName        = $ContentSwitchingName
         Priority                    = 101
     }    
@@ -153,7 +154,7 @@ $AuthenticationServers | ForEach-Object { New-AAAConfig @_ }
 Write-Verbose "  -- Setting up load balancers..."
 $ReverseProxies | ForEach-Object { New-ReverseProxy @_ }
 
-$TargetVServer              = "aaa-server"
+$TargetVServer              = $AAAVServer
 $VirtualHost                = "aaa.extlab.local"
 $ContentSwitchingPolicyName = "cs-pol-$VirtualHost"
 $ContentSwitchingActionName = "cs-act-$VirtualHost"
