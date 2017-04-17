@@ -117,7 +117,7 @@ minimal configuration required to access the Web configuration GUI):
 ## Certificate creation
 
 On Windows Server 2016 or Windows 10:
-    
+
     $password = ConvertTo-SecureString -String "Passw0rd" -Force -AsPlainText
     dir Cert:\LocalMachine\My\ | Where-Object Subject -like '*extlab*' | Remove-Item
     New-SelfSignedCertificate -certstorelocation cert:\localmachine\my `
@@ -127,7 +127,7 @@ On Windows Server 2016 or Windows 10:
         New-SelfSignedCertificate -certstorelocation cert:\localmachine\my `
             -dnsname $Fqdn
     }
-    dir Cert:\LocalMachine\My | Where-Object Subject -like '*extlab*' | % {  
+    dir Cert:\LocalMachine\My | Where-Object Subject -like '*extlab*' | % {
         Export-PfxCertificate -Cert $_ -FilePath "Data/$($_.DnsNameList).pfx" `
             -Password $password -Force
     }
@@ -147,47 +147,51 @@ Note: if you are regenerating it, don't forget to remove it from NetScaler so th
 
 ## ADFS Relying Party Trust
 
-    [String]$CertificateSubject     = "sts.extlab.local"
-    [String]$Fqdn                   = "www.extlab.local"
-    [String]$CertificateDirectory   = "c:\Downloads"
-    [String]$CertificatePassword    = "Passw0rd"
+    Invoke-Command -VMName LAB-ADFS01 -Credential $global:LabCredentials {
+        [String]$CertificateSubject     = "sts.extlab.local"
+        [String[]]$Fqdn                 = "www.extlab.local", "wwa.extlab.local"
+        [String]$CertificateDirectory   = "c:\Downloads"
+        [String]$CertificatePassword    = "Passw0rd"
 
-    Import-PfxCertificate $CertificateDirectory\$CertificateSubject.pfx `
-        -CertStoreLocation Cert:\LocalMachine\My `
-        -Password (ConvertTo-SecureString $CertificatePassword -AsPlainText -Force)
+        Import-PfxCertificate $CertificateDirectory\$CertificateSubject.pfx `
+            -CertStoreLocation Cert:\LocalMachine\My `
+            -Password (ConvertTo-SecureString $CertificatePassword -AsPlainText -Force)
 
-    if (Get-ADFSRelyingPartyTrust -Name Netscaler) {
-        Remove-ADFSRelyingPartyTrust -TargetName Netscaler
-    }
+        if (Get-ADFSRelyingPartyTrust -Name Netscaler) {
+            Remove-ADFSRelyingPartyTrust -TargetName Netscaler
+        }
 
-    Add-ADFSRelyingPartyTrust -Name Netscaler `
-        -Identifier Netscaler `
-        -SamlEndpoint (
-            New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://$Fqdn/cgi/samlauth"
-        ) `
-        -RequestSigningCertificate (Get-ChildItem  -Path Cert:\LocalMachine\My  | ? { $_.Subject  -Match "$CertificateSubject"})
+        Add-ADFSRelyingPartyTrust -Name Netscaler `
+            -Identifier Netscaler `
+            -SamlEndpoint (
+                $Fqdn | ForEach-Object -Begin { $i = 0 } {
+                    New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://$_/cgi/samlauth" -Index ($i++)
+                }
+            ) `
+            -RequestSigningCertificate (Get-ChildItem  -Path Cert:\LocalMachine\My  | ? { $_.Subject  -Match "$CertificateSubject"})
 
-    $rules = @'
-    @RuleName = "Store: ActiveDirectory -> Mail (ldap attribute: mail), Name (ldap attribute: userPrincipalName), GivenName (ldap attribute: givenName), Surname (ldap attribute: sn)" 
-    c:[Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/windowsaccountname", Issuer == "AD AUTHORITY"]
-    => issue(store = "Active Directory", types = ("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress", 
-    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name", 
-    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier", 
-    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname", 
-    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"), query = ";mail,displayName,userPrincipalName,givenName,sn;{0}", param = c.Value);
+        $rules = @'
+        @RuleName = "Store: ActiveDirectory -> Mail (ldap attribute: mail), Name (ldap attribute: userPrincipalName), GivenName (ldap attribute: givenName), Surname (ldap attribute: sn)"
+        c:[Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/windowsaccountname", Issuer == "AD AUTHORITY"]
+        => issue(store = "Active Directory", types = ("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"), query = ";mail,displayName,userPrincipalName,givenName,sn;{0}", param = c.Value);
     '@
-    
-    Set-ADFSRelyingPartyTrust -TargetName Netscaler -IssuanceTransformRules $rules
 
-    $AuthRule = '=> issue(Type = "http://schemas.microsoft.com/authorization/claims/permit", Value = "true");'
-    $RuleSet = New-ADFSClaimRuleSet -ClaimRule $AuthRule
-    Set-ADFSRelyingPartyTrust -TargetName Netscaler -IssuanceAuthorizationRules $RuleSet.ClaimRulesString
+        Set-ADFSRelyingPartyTrust -TargetName Netscaler -IssuanceTransformRules $rules
 
-    Set-ADFSRelyingPartyTrust -TargetName Netscaler -NotBeforeSkew 2
+        $AuthRule = '=> issue(Type = "http://schemas.microsoft.com/authorization/claims/permit", Value = "true");'
+        $RuleSet = New-ADFSClaimRuleSet -ClaimRule $AuthRule
+        Set-ADFSRelyingPartyTrust -TargetName Netscaler -IssuanceAuthorizationRules $RuleSet.ClaimRulesString
+
+        Set-ADFSRelyingPartyTrust -TargetName Netscaler -NotBeforeSkew 2
+    }
 
 Changing endpoints:
 
     Set-ADFSRelyingPartyTrust -Name Netscaler -SamlEndpoint @(
             New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://www.extlab.local/cgi/samlauth"
-            New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://wwa.extlab.local/cgi/samlauth" -Index 1   
+            New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://wwa.extlab.local/cgi/samlauth" -Index 1
         )

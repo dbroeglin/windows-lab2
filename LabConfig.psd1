@@ -71,7 +71,7 @@
             Lability_Resource       = @('sts.extlab.local.pfx')
 
             IPAddress               = '10.0.0.32'
-            AdfsCertThumbprint      = "1BC84A035D2264F1DB41A40B24691119B9616F79"
+            AdfsCertThumbprint      = "A8231F21FD2262E8BAC49D47B4F5976247F843D0"
             AdfsDisplayName         = "LAB ADFS"
             AdfsFQDN                = "sts.extlab.local"
         }

@@ -81,11 +81,14 @@ Set-StrictMode -Version 4
 $Session = Connect-NetscalerInstance -NSIP $Nsip -Username $Username -Password $Password
 
 if ($Bootstrap) {
+    Write-Verbose "Bootstraping NetScaler..."
     Add-NSIPResource -IPAddress $Snip -SubnetMask $SnipSubnetMask -Type SNIP  -Session $Session
     Install-NSLicense -Path .\license.lic -Session $Session
     Restart-NetScaler -WarmReboot -Wait -SaveConfig -Force -Session $Session
     
     # Reconnect after reboot
+    Start-Sleep 10
+    Write-Verbose "Reconnecting after restart..."
     $Session = Connect-NetscalerInstance -NSIP $Nsip -Username $Username -Password $Password
 }
 if ($Clear) {

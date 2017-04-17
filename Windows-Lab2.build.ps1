@@ -73,7 +73,9 @@ task PrepareDscConfig {
         -OutputPath $MofConfigurationPath `
         -Credential $Global:LabilityCredentials -Verbose
 
-    Copy-Item -Path $PSScriptRoot\Data\sts.extlab.local.pfx -Destination (Get-LabHostDefault).ResourcePath
+    "sts.extlab.local", "wwa.extlab.local" | ForEach-Object {
+        Copy-Item -Path $PSScriptRoot\Data\$_.pfx -Destination (Get-LabHostDefault).ResourcePath
+    }
 }
 
 task ReBuild PrepareDscConfig, {

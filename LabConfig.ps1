@@ -1,13 +1,13 @@
 Configuration LabConfig {
     Param (
-        [Parameter()] 
-        [PSCredential] 
+        [Parameter()]
+        [PSCredential]
         [System.Management.Automation.Credential()]
         $Credential = [PSCredential]::new("Administrator", (ConvertTo-SecureString -AsPlainText -Force "Passw0rd")),
 
         [Parameter()] [String] $DownloadDir = "C:\Downloads",
 
-        [PSCredential] 
+        [PSCredential]
         [System.Management.Automation.Credential()]
         $AdfsSvcCredential = [PSCredential]::new("svc_adfs", (ConvertTo-SecureString -AsPlainText -Force "Passw1rd")),
 
@@ -31,6 +31,7 @@ Configuration LabConfig {
     Import-DscResource -ModuleName xDhcpServer                  -ModuleVersion 1.3.0.0
     Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 6.0.0.0
     Import-DscResource -ModuleName xWebAdministration           -ModuleVersion 1.17.0.0
+    Import-DscResource -ModuleName xCertificate                 -ModuleVersion 2.4.0.0
 
     node $AllNodes.Where({$true}).NodeName {
         LocalConfigurationManager {
@@ -192,7 +193,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Password             = $Credential
             PasswordNeverExpires = $True
             Ensure               = 'Present'
-            DependsOn            = '[xADDomain]ADDomain'            
+            DependsOn            = '[xADDomain]ADDomain'
         }
 
         xADGroup DomainAdmins {
@@ -213,6 +214,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'lab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq WEB01).IPAddress
+            DependsOn = '[xADDomain]ADDomain'
         }
 
         xDNSRecord wwa.lab.local {
@@ -220,6 +222,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'lab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq WEB01).IPAddress
+            DependsOn = '[xADDomain]ADDomain'
         }
 
         xDNSRecord wwb.lab.local {
@@ -227,12 +230,14 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'lab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq WEB01).IPAddress
+            DependsOn = '[xADDomain]ADDomain'
         }
 
         xDnsServerADZone extlab.local {
             Name             = 'extlab.local'
             ReplicationScope = 'Forest'
-            Ensure           = 'Present'              
+            Ensure           = 'Present'
+            DependsOn = '[xADDomain]ADDomain'
         }
 
         xDNSRecord aaa.extlab.local {
@@ -240,15 +245,15 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
-            DependsOn = @("[xDnsServerADZone]extlab.local")            
+            DependsOn = @("[xDnsServerADZone]extlab.local")
         }
-        
+
         xDNSRecord www.extlab.local {
             Name     = 'www'
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
-            DependsOn = @("[xDnsServerADZone]extlab.local")            
+            DependsOn = @("[xDnsServerADZone]extlab.local")
         }
 
         xDNSRecord wwa.extlab.local {
@@ -256,7 +261,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
-            DependsOn = @("[xDnsServerADZone]extlab.local")            
+            DependsOn = @("[xDnsServerADZone]extlab.local")
         }
 
         xDNSRecord wwb.extlab.local {
@@ -264,7 +269,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
-            DependsOn = @("[xDnsServerADZone]extlab.local")            
+            DependsOn = @("[xDnsServerADZone]extlab.local")
         }
 
         xDNSRecord sts.extlab.local {
@@ -272,16 +277,39 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Type     =  'ARecord'
             Zone     = 'extlab.local'
             Target   = ($ConfigurationData.AllNodes | Where-Object NodeName -eq NS01).VIP
-            DependsOn = @("[xDnsServerADZone]extlab.local")            
+            DependsOn = @("[xDnsServerADZone]extlab.local")
         }
     } #end nodes DC
+
+    node $AllNodes.Where({$_.Role -contains 'JOINED'}).NodeName {
+        ## Flip credential into username@domain.com
+        $upn = '{0}@{1}' -f $Credential.UserName, $node.DomainName;
+        # TODO: parameterize this one
+        $domainCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($upn, $Credential.Password);
+
+<#
+        xWaitForADDomain DscForestWait
+        {
+            DomainName           = $Node.DomainName
+            DomainUserCredential = $domainCredential
+            RetryCount           = 30
+            RetryIntervalSec     = 30
+        }
+#>
+        xComputer 'DomainMembership' {
+            Name       = $node.NodeName
+            DomainName = $node.DomainName
+            Credential = $domainCredential
+#            DependsOn  = "[xWaitForADDomain]DscForestWait"
+        }
+    } #end nodes JOINED
 
     node $AllNodes.Where({$_.Role -contains 'JAHIA'}).NodeName {
         $JavaPackagePath = Join-Path $DownloadDir "jdk-8u112-windows-x64.exe"
 
         xRemoteFile "jdk-8u112-windows-x64.exe"
         {
-            DestinationPath = $JavaPackagePath 
+            DestinationPath = $JavaPackagePath
             MatchSource = $False
             Uri = "http://download.oracle.com/otn-pub/java/jdk/8u112-b15/jdk-8u112/jdk-8u112-windows-x64.exe"
             Headers = @{
@@ -303,7 +331,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Name = "JAVA_HOME"
             Ensure = "Present"
             Value = "C:\Program Files\Java\jdk1.8.0_112"
-        }     
+        }
     } #end nodes JAHIA
 
     node $AllNodes.Where({$_.Role -contains 'WEB'}).NodeName {
@@ -318,14 +346,14 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             DestinationPath = 'C:\inetpub\wwwroot\index.html'
             Contents        = 'Hello World!'
             Type            = 'File'
-        } 
+        }
 
         File wwaroot
         {
             Ensure          = 'Present'
             DestinationPath = 'C:\inetpub\wwaroot'
             Type            = 'Directory'
-        } 
+        }
 
         File wwa_index
         {
@@ -334,7 +362,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             Contents        = 'WWA: Hello World!'
             Type            = 'File'
             DependsOn       = @("[File]wwaroot")
-        } 
+        }
 
         xWebsite wwa.lab.local {
             Ensure          = 'Present'
@@ -362,12 +390,21 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
         {
             Ensure = "Present"
             Name = "ADFS-Federation"
-        } 
+        }
 
         WindowsFeature RSAT-AD-PowerShell
         {
             Name = "RSAT-AD-PowerShell"
             Ensure = "Present"
+        }
+
+        xPfxImport sts.extlab.local
+        {
+            Thumbprint = $Node.AdfsCertThumbprint
+            Path       = "C:\Downloads\$($Node.AdfsFQDN).pfx"
+            Credential = [PSCredential]::new("Dummy", (ConvertTo-SecureString -AsPlainText -Force "Passw0rd"))
+            Location   = 'LocalMachine'
+            Store      = 'My'
         }
 
         Script ADFSFarm
@@ -394,7 +431,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
                     } else {
                         Write-Verbose -Message 'Installing Active Directory Federation Services (ADFS) farm.';
                         Import-PfxCertificate  -CertStoreLocation Cert:\LocalMachine\My -FilePath c:\Downloads\sts.extlab.local.pfx -Password (
-                            ConvertTo-SecureString -AsPlainText -Force "Passw0rd") 
+                            ConvertTo-SecureString -AsPlainText -Force "Passw0rd")
                         $AdfsFarm = @{
                             ServiceAccountCredential      = [PSCredential]::new("LAB\svc_adfs", (ConvertTo-SecureString -AsPlainText -Force "Passw1rd"))
                             Credential                    = [PSCredential]::new("LAB\Administrator", (ConvertTo-SecureString -AsPlainText -Force "Passw0rd"))
@@ -442,22 +479,10 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
                     }
                 }
 
-                return $Compliant;                
+                return $Compliant;
             }
-            DependsOn = @('[WindowsFeature]ADFS')
+            DependsOn = '[WindowsFeature]ADFS', '[xComputer]DomainMembership', '[xPfxImport]sts.extlab.local'
         }
     } #end nodes ADFS
-
-    node $AllNodes.Where({$_.Role -contains 'JOINED'}).NodeName {
-        ## Flip credential into username@domain.com
-        $upn = '{0}@{1}' -f $Credential.UserName, $node.DomainName;
-        $domainCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($upn, $Credential.Password);
-
-        xComputer 'DomainMembership' {
-            Name = $node.NodeName;
-            DomainName = $node.DomainName;
-            Credential = $domainCredential;
-        }
-    } #end nodes DomainJoined
 
 } #end Lab Configuration
