@@ -155,7 +155,7 @@ Note: if you are regenerating it, don't forget to remove it from NetScaler so th
         }
 
         Get-ADUser iis_svc | Set-ADUser -Enabled $True -Replace @{
-            "ServicePrincipalName"     = "http/wwa.extlab.local"
+            "ServicePrincipalName"     = "http/wwa.lab.local"
         }
     }
 
@@ -209,3 +209,10 @@ Changing endpoints:
             New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://www.extlab.local/cgi/samlauth"
             New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://wwa.extlab.local/cgi/samlauth" -Index 1
         )
+
+## Additional IIS setup
+
+    Invoke-Command -VMName LAB-WEB01 -Credential $global:LabCredentials {
+        Set-WebConfigurationProperty -Filter /system.webServer/security/authentication/windowsAuthentication `
+            -Name useAppPoolCredentials -Value $true -Location wwa.lab.local
+    }

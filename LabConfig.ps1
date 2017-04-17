@@ -387,6 +387,15 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             DependsOn       = @("[File]wwaroot")
         }
 
+        xWebAppPool wwa_app_pool
+        {
+            Name                           = 'wwa_app_pool'
+            Ensure                         = 'Present'
+            State                          = 'Started'
+            IdentityType                   = 'SpecificUser'
+            Credential                     = [PSCredential]::new("LAB\iis_svc", (ConvertTo-SecureString -AsPlainText -Force "Passw0rd"))
+        }
+
         xWebsite wwa.lab.local {
             Ensure          = 'Present'
             Name            = 'wwa.lab.local'
@@ -403,6 +412,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             }
             State           = 'Started'
             PhysicalPath    = 'c:\inetpub\wwaroot'
+            ApplicationPool = 'wwa_app_pool'
             DependsOn       = '[File]wwa_index', '[WindowsFeature]WebServer'
         }
 
