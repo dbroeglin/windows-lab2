@@ -160,36 +160,51 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
         }
 
         xADUser svc_adfs {
-            DomainName = $node.DomainName;
-            UserName = $AdfsSvcCredential.UserName;
-            Description = 'ADFS service user';
-            Password = $AdfsSvcCredential;
-            Ensure = 'Present';
-            DependsOn = '[xADDomain]ADDomain';
+            DomainName           = $node.DomainName
+            UserName             = $AdfsSvcCredential.UserName
+            UserPrincipalName    = ("{0}@lab.local" -f $AdfsSvcCredential.UserName)
+            Description          = 'ADFS service user'
+            Password             = $AdfsSvcCredential
+            Ensure               = 'Present'
+            DependsOn            = '[xADDomain]ADDomain'
         }
 
         xADUser alice {
-            DomainName  = $node.DomainName
-            UserName    = 'alice'
-            Description = 'Alice'
-            Password    = $Credential
-            Ensure      = 'Present'
-            DependsOn   = '[xADDomain]ADDomain'
+            DomainName        = $node.DomainName
+            UserName          = 'alice'
+            UserPrincipalName = 'alice@lab.local'
+            Description       = 'Alice'
+            Password          = $Credential
+            Ensure            = 'Present'
+            DependsOn         = '[xADDomain]ADDomain'
         }
 
         xADUser bob {
-            DomainName  = $node.DomainName
-            UserName    = 'bob'
-            Description = 'Bob'
-            Password    = $Credential
-            Ensure      = 'Present'
-            DependsOn   = '[xADDomain]ADDomain'
+            DomainName        = $node.DomainName
+            UserName          = 'bob'
+            UserPrincipalName = 'bob@lab.local'
+            Description       = 'Bob'
+            Password          = $Credential
+            Ensure            = 'Present'
+            DependsOn         = '[xADDomain]ADDomain'
         }
 
         xADUser ns_svc {
             DomainName           = $node.DomainName
             UserName             = 'ns_svc'
+            UserPrincipalName    = 'ns_svc@lab.local'
             Description          = 'Netscaler Service Account (KCD)'
+            Password             = $Credential
+            PasswordNeverExpires = $True
+            Ensure               = 'Present'
+            DependsOn            = '[xADDomain]ADDomain'
+        }
+
+        xADUser iis_svc {
+            DomainName           = $node.DomainName
+            UserName             = 'iis_svc'
+            UserPrincipalName    = 'iis_svc@lab.local'
+            Description          = 'IIS Service Account (KCD)'
             Password             = $Credential
             PasswordNeverExpires = $True
             Ensure               = 'Present'
@@ -335,9 +350,17 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
     } #end nodes JAHIA
 
     node $AllNodes.Where({$_.Role -contains 'WEB'}).NodeName {
-        WindowsFeature IIS {
-            Ensure          = 'Present'
-            Name            = 'Web-Server'
+        ## Hack to fix DependsOn with hypens "bug" :(
+        foreach ($feature in @(
+                'Web-Server',
+                'Web-Windows-Auth',
+                'Web-Mgmt-Console'# Install IIS management console for troubleshooting
+            )) {
+            WindowsFeature $feature.Replace('-','') {
+                Ensure = 'Present';
+                Name = $feature;
+                IncludeAllSubFeature = $true;
+            }
         }
 
         File WebContent
@@ -380,7 +403,7 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
             }
             State           = 'Started'
             PhysicalPath    = 'c:\inetpub\wwaroot'
-            DependsOn       = '[File]wwa_index'
+            DependsOn       = '[File]wwa_index', '[WindowsFeature]WebServer'
         }
 
     } #end nodes WEB

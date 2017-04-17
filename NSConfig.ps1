@@ -7,6 +7,7 @@ Param(
     $Username          = "nsroot",
     $Password          = "nsroot",
     $Timezone          = 'GMT+01:00-CET-Europe/Zurich',
+    $DCIPAddress       = '10.0.0.1',
 
     [Switch]$Clear,
     [Switch]$Bootstrap
@@ -99,6 +100,10 @@ if ($Clear) {
 Write-Verbose "Applying Netscaler configuration..."
 Set-NSTimeZone -TimeZone $Timezone -Session $Session -Force
 Set-NSHostname -Hostname $Hostname -Session $Session -Force
+if (-not (Get-NSNTPServer -Server $DCIPAddress)) {
+    New-NSNTPServer -Server $DCIPAddress -Session $Session
+}
+Invoke-Nitro -Type ntpsync -Method POST -Action enable -Session $Session -Force
 
 Disable-NSMode -Name l3 -Force -Session $Session
 
@@ -230,7 +235,9 @@ Invoke-Nitro -Type tmtrafficpolicy -Method POST -Payload @{
         action = "prf-sso-kcd"
         rule   = "true"
     } -Action Add -Force
-Add-NSLBVirtualServerTrafficPolicyBinding -VirtualServerName "vsrv-www.extlab.local" -PolicyName "pol-sso-kcd" -Priority 100
+
+Write-Verbose "  ---- Binding KCD traffic policy to wwa.extlab.local..."
+Add-NSLBVirtualServerTrafficPolicyBinding -VirtualServerName "vsrv-wwa.extlab.local" -PolicyName "pol-sso-kcd" -Priority 100
 
 
 Write-Verbose "Saving configuration..."

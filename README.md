@@ -145,6 +145,20 @@ Note: if you are regenerating it, don't forget to remove it from NetScaler so th
 
 # TODOs
 
+## Additional AD user setup
+
+    Invoke-Command -VMName LAB-DC01 -Credential $global:LabCredentials {
+        Set-ADAccountControl ns_svc -TrustedForDelegation $False -TrustedToAuthForDelegation $True
+        Get-ADUser ns_svc | Set-ADUser -Enabled $True -Replace @{
+            "msDS-AllowedToDelegateTo" = "http/wwa.lab.local"
+            "ServicePrincipalName"     = "host/netscaler"
+        }
+
+        Get-ADUser iis_svc | Set-ADUser -Enabled $True -Replace @{
+            "ServicePrincipalName"     = "http/wwa.extlab.local"
+        }
+    }
+
 ## ADFS Relying Party Trust
 
     Invoke-Command -VMName LAB-ADFS01 -Credential $global:LabCredentials {
