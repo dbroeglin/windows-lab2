@@ -57,12 +57,11 @@ task Build PrepareDscConfig, {
                 Remove-Item $UserDataISOFile -Force -ErrorAction SilentlyContinue
                 New-IsoFile -Media CDR -Source $PWD/userdata -Path $UserDataISOFile -Force
 
-                Set-VMDvdDrive -VMName "$LabVmPrefix-$($_.NodeName)" -Path $UserDataISOFile
+                #Set-VMDvdDrive -VMName "$LabVmPrefix-$($_.NodeName)" -Path $UserDataISOFile
             } finally {
                 Remove-Item $PWD/userdata -Force -ErrorAction SilentlyContinue
             }
         }
-
     Start-Lab -ConfigurationData $ConfigurationPath -Verbose
 }
 
@@ -147,6 +146,7 @@ task NSSetup NSPrepare, {
 
 task NSReset NSPrepare, {
     Clear-NSConfig -Level Full -Force -Session $session
+    Save-NsConfig
 }, NSSetup
 
 

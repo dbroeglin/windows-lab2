@@ -94,6 +94,7 @@ if ($Bootstrap) {
 }
 if ($Clear) {
     Clear-NSConfig -Session $Session -Force
+    Save-NSConfig
 }
 
 

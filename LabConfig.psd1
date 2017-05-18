@@ -41,6 +41,11 @@
             Lability_StartupMemory      = 2GB
             Lability_Media              = 'NSVPX_11_1'
             Lability_MacAddress         = '00:15:5D:7E:31:00'
+            Lability_DvdDrive      = @{            
+                ControllerNumber   = 1
+                ControllerLocation = 0
+                Path               = 'C:\Lability\VMVirtualHardDisks\NS01.iso'
+            }            
         }
         @{
             NodeName                    = 'NS02'
@@ -56,6 +61,11 @@
             Lability_StartupMemory      = 2GB
             Lability_Media              = 'NSVPX_11_1'
             Lability_MacAddress         = '00:15:5D:7E:31:01'
+            Lability_DvdDrive      = @{            
+                ControllerNumber   = 1
+                ControllerLocation = 0
+                Path               = 'C:\Lability\VMVirtualHardDisks\NS02.iso'
+            }            
         }
         <#
         @{
@@ -81,6 +91,7 @@
             Role                    = @('JOINED', 'WEB')
             Lability_Resource       = @('wwa.extlab.local.pfx')
         }
+        
     );
     NonNodeData = @{
         Lability = @{

@@ -175,7 +175,7 @@ Note: if you are regenerating it, don't forget to remove it from NetScaler so th
             Remove-ADFSRelyingPartyTrust -TargetName Netscaler
         }
 
-        Add-ADFSRelyingPartyTrust -Name Netscaler `
+        Add-ADFSRelyingPartyTrust -TargetName Netscaler `
             -Identifier Netscaler `
             -SamlEndpoint (
                 $Fqdn | ForEach-Object -Begin { $i = 0 } {
@@ -205,10 +205,12 @@ Note: if you are regenerating it, don't forget to remove it from NetScaler so th
 
 Changing endpoints:
 
-    Set-ADFSRelyingPartyTrust -Name Netscaler -SamlEndpoint @(
-            New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://www.extlab.local/cgi/samlauth"
-            New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://wwa.extlab.local/cgi/samlauth" -Index 1
-        )
+    Invoke-Command -VMName LAB-ADFS01 -Credential $global:LabCredentials {
+        Set-ADFSRelyingPartyTrust -TargetName Netscaler -SamlEndpoint @(
+                New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://www.extlab.local/cgi/samlauth"
+                New-ADFSSamlEndpoint -Binding "POST" -Protocol "SAMLAssertionConsumer" -Uri "https://wwa.extlab.local/cgi/samlauth" -Index 1
+            )
+    }
 
 ## Additional IIS setup
 
@@ -216,3 +218,6 @@ Changing endpoints:
         Set-WebConfigurationProperty -Filter /system.webServer/security/authentication/windowsAuthentication `
             -Name useAppPoolCredentials -Value $true -Location wwa.lab.local
     }
+
+
+## 
