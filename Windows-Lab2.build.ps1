@@ -66,6 +66,11 @@ task Build PrepareDscConfig, {
 }
 
 task PrepareDscConfig {
+    $LocalModulesPath = "$PSScriptRoot\Modules"
+    if (-not (($env:PSModulePath -split ';').Contains($LocalModulesPath))) {
+        $env:PSModulePath = "$env:PSModulePath;$LocalModulesPath"
+    }
+
     . $PSScriptRoot\LabConfig.ps1
 
     LabConfig -ConfigurationData $ConfigurationPath `

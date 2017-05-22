@@ -33,6 +33,8 @@ Configuration LabConfig {
     Import-DscResource -ModuleName xWebAdministration           -ModuleVersion 1.17.0.0
     Import-DscResource -ModuleName xCertificate                 -ModuleVersion 2.4.0.0
 
+    Import-DscResource -ModuleName LabComposites
+
     node $AllNodes.Where({$true}).NodeName {
         LocalConfigurationManager {
             RebootNodeIfNeeded   = $true;
@@ -515,6 +517,14 @@ node $AllNodes.Where({$_.Role -contains 'DC'}).NodeName {
                 return $Compliant;
             }
             DependsOn = '[WindowsFeature]ADFS', '[xComputer]DomainMembership', '[xPfxImport]sts.extlab.local'
+        }
+
+        AdfsConfig Test {
+            Ensure = "Present"
+            CertificateSubject     = "sts.extlab.local"
+            Fqdn                 = "www.extlab.local", "wwa.extlab.local"
+            CertificateDirectory   = "c:\Downloads"
+            CertificatePassword    = "Passw0rd"
         }
     } #end nodes ADFS
 
